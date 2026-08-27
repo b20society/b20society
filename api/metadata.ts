@@ -4,7 +4,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { TOTAL_SUPPLY, METADATA_CACHE_TTL } from "../lib/constants";
-import { TIER_IMAGES, tierImageUrl, TIER_COUNT } from "../lib/tier-images";
+import { tierImageUrl } from "../lib/tier-images";
 import { computeMarketcap } from "../lib/marketcap";
 
 export const config = {
@@ -12,6 +12,7 @@ export const config = {
 };
 
 const PUBLIC_DOMAIN = "https://b20society.com";
+const PLACEHOLDER_IMAGE = `${PUBLIC_DOMAIN}/images/placeholder.svg`;
 
 export default async function handler(
   _req: VercelRequest,
@@ -20,12 +21,7 @@ export default async function handler(
   try {
     const poolId = process.env.V4_POOL_ID as `0x${string}` | undefined;
     if (!poolId) {
-      // Stub mode: if pool ID not set, return tier 0 (will be the placeholder)
-      const metadata = stubMetadata(0, "no V4_POOL_ID set");
-      return new Response(JSON.stringify(metadata, null, 2), {
-        status: 200,
-        headers: cacheHeaders(),
-      });
+      return jsonResponse(stubMetadata(0, "no V4_POOL_ID set"));
     }
 
     const result = await computeMarketcap(poolId);
@@ -49,10 +45,7 @@ export default async function handler(
       ],
     };
 
-    return new Response(JSON.stringify(metadata, null, 2), {
-      status: 200,
-      headers: cacheHeaders(),
-    });
+    return jsonResponse(metadata);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
@@ -67,7 +60,7 @@ function stubMetadata(tier: number, reason: string) {
     name: "B20 Society",
     symbol: "SOCIETY",
     description: `B20 Society — a self-evolving B20 token. (stub: ${reason})`,
-    image: tierImageUrl(tier, PUBLIC_DOMAIN),
+    image: PLACEHOLDER_IMAGE,
     external_url: PUBLIC_DOMAIN,
     attributes: [
       { trait_type: "Tier", value: tier },
@@ -76,10 +69,13 @@ function stubMetadata(tier: number, reason: string) {
   };
 }
 
-function cacheHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "application/json",
-    "Cache-Control": `public, max-age=${METADATA_CACHE_TTL}`,
-    "Access-Control-Allow-Origin": "*",
-  };
+function jsonResponse(data: object): Response {
+  return new Response(JSON.stringify(data, null, 2), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": `public, max-age=${METADATA_CACHE_TTL}`,
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }

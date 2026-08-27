@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a24"/>
+      <stop offset="100%" stop-color="#0a0a0f"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ff88"/>
+      <stop offset="100%" stop-color="#00cc6e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Center diamond -->
+  <g transform="translate(512 512)">
+    <rect x="-280" y="-280" width="560" height="560" rx="40" fill="none" stroke="url(#ring)" stroke-width="6" opacity="0.3"/>
+    <rect x="-200" y="-200" width="400" height="400" rx="28" fill="none" stroke="url(#ring)" stroke-width="4" opacity="0.5"/>
+    <rect x="-120" y="-120" width="240" height="240" rx="16" fill="rgba(0,255,136,0.1)" stroke="url(#ring)" stroke-width="2"/>
+    <text x="0" y="0" text-anchor="middle" dominant-baseline="middle" fill="url(#ring)" font-family="monospace" font-size="120" font-weight="800">B20</text>
+  </g>
+
+  <!-- Top label -->
+  <text x="512" y="120" text-anchor="middle" fill="#a0a0b0" font-family="monospace" font-size="24" letter-spacing="6">SOCIETY</text>
+
+  <!-- Bottom label -->
+  <text x="512" y="950" text-anchor="middle" fill="#6a6a7a" font-family="monospace" font-size="18" letter-spacing="2">AWAITING LAUNCH</text>
+
+  <!-- Corner ticks -->
+  <g stroke="url(#ring)" stroke-width="3" opacity="0.5">
+    <line x1="80" y1="80" x2="120" y2="80"/>
+    <line x1="80" y1="80" x2="80" y2="120"/>
+    <line x1="944" y1="80" x2="904" y2="80"/>
+    <line x1="944" y1="80" x2="944" y2="120"/>
+    <line x1="80" y1="944" x2="120" y2="944"/>
+    <line x1="80" y1="944" x2="80" y2="904"/>
+    <line x1="944" y1="944" x2="904" y2="944"/>
+    <line x1="944" y1="944" x2="944" y2="904"/>
+  </g>
+</svg>
