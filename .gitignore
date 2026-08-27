@@ -40,3 +40,8 @@ broadcast/
 # Cache
 .eslintcache
 .turbo
+.vercel
+
+# Foundry dependencies (reinstall with forge install)
+lib/forge-std/
+lib/openzeppelin-contracts/
