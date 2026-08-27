@@ -77,9 +77,19 @@ function renderToken() {
     }
   }
 
-  // Tier
-  const tierEl = document.getElementById("tier-value");
-  if (tierEl) tierEl.textContent = tier != null ? tier : "—";
+  // Progress (percentage toward $1M)
+  // Tier range is 0..90, so percentage = (tier / 90) * 100
+  const TIER_MAX = 90;
+  const progressEl = document.getElementById("progress-value");
+  const progressBar = document.getElementById("progress-bar");
+  if (tier != null) {
+    const pct = Math.min(100, Math.max(0, (Number(tier) / TIER_MAX) * 100));
+    if (progressEl) progressEl.textContent = `${pct.toFixed(1)}%`;
+    if (progressBar) progressBar.style.width = `${pct}%`;
+  } else {
+    if (progressEl) progressEl.textContent = "—";
+    if (progressBar) progressBar.style.width = "0%";
+  }
 
   // Marketcap
   const mcEl = document.getElementById("marketcap-value");
