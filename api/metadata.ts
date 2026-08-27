@@ -12,7 +12,8 @@ export const config = {
 };
 
 const PUBLIC_DOMAIN = "https://b20society.com";
-const PLACEHOLDER_IMAGE = `${PUBLIC_DOMAIN}/images/placeholder.svg`;
+// Stub mode shows tier 0 = the lowest-marketcap image (Soc1.jpg)
+const STUB_IMAGE = `${PUBLIC_DOMAIN}/images/Soc1.jpg`;
 
 export default async function handler(
   _req: VercelRequest,
@@ -60,7 +61,7 @@ function stubMetadata(tier: number, reason: string) {
     name: "B20 Society",
     symbol: "SOCIETY",
     description: `B20 Society — a self-evolving B20 token. (stub: ${reason})`,
-    image: PLACEHOLDER_IMAGE,
+    image: STUB_IMAGE,
     external_url: PUBLIC_DOMAIN,
     attributes: [
       { trait_type: "Tier", value: tier },
