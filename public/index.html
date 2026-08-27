@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B20 Society — Self-evolving B20 token</title>
+  <meta name="description" content="B20 Society is a self-evolving B20 token paired with NVDA. Image reflects market cap, NFT collection evolves through 10 phases via $SOCIETY burns.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2300ff88'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' font-family='monospace' font-weight='800' fill='%230a0a0f'%3EB%3C/text%3E%3C/svg%3E">
+
+  <meta property="og:title" content="B20 Society — Self-evolving B20 token">
+  <meta property="og:description" content="A self-evolving B20 token on Base. Image reflects market cap. NFT collection advances through 10 phases.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://b20society.com">
+</head>
+<body>
+
+  <header>
+    <div class="container header-content">
+      <div class="logo">
+        <div class="logo-mark">B</div>
+        B20 Society
+      </div>
+      <nav class="header-nav">
+        <a href="#token">Token</a>
+        <a href="#how">How it works</a>
+        <a href="#nft">NFT</a>
+        <a href="#contracts">Contracts</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1>B20 Society</h1>
+      <p class="symbol">$SOCIETY</p>
+      <p class="tagline">
+        A self-evolving B20 token on Base. Image morphs with market cap.
+        NFT collection advances through 10 phases via $SOCIETY burns.
+      </p>
+    </div>
+  </section>
+
+  <section class="token-section" id="token">
+    <div class="container">
+      <div class="token-grid">
+        <div class="token-image-wrap">
+          <img id="token-image" class="token-image" alt="B20 Society current tier image">
+        </div>
+        <div class="token-info">
+          <h2>Current Tier</h2>
+          <div class="tier-display" id="tier-value">—</div>
+
+          <h2>Market Cap</h2>
+          <div class="marketcap-display" id="marketcap-value">—</div>
+
+          <div class="stub-warning" id="stub-warning" style="display:none">
+            ⚠ Stub mode active. Set V4_POOL_ID and SOCIETY_ADDRESS env vars in Vercel.
+          </div>
+
+          <ul class="meta-list">
+            <li>
+              <span class="label">NVDA Price</span>
+              <span class="value" id="nvda-value">—</span>
+            </li>
+            <li>
+              <span class="label">Total Supply</span>
+              <span class="value" id="supply-value">1,000,000,000 SOCIETY</span>
+            </li>
+            <li>
+              <span class="label">Paired With</span>
+              <span class="value">NVDA (Chainlink oracle)</span>
+            </li>
+            <li>
+              <span class="label">Price Feed Stale</span>
+              <span class="value" id="stale-value">—</span>
+            </li>
+            <li>
+              <span class="label">Last Updated</span>
+              <span class="value" id="last-update">—</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how-section" id="how">
+    <div class="container">
+      <h2 class="section-title">How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01 / token image</div>
+          <h3>Live market cap → tier</h3>
+          <p>
+            V4 pool sqrtPrice × Chainlink NVDA/USD gives us real-time USD market cap.
+            Each $10K of marketcap bumps the image up by one tier. 100 tiers, 100 hand-crafted WebP scenes.
+          </p>
+        </div>
+        <div class="step">
+          <div class="step-num">02 / NFT phase</div>
+          <h3>Burn $SOCIETY, evolve NFT</h3>
+          <p>
+            1000-supply NFT collection, 1 design × 10 phases (animated GIF).
+            Holders burn $SOCIETY to advance phase: 20K → 30K → ... → 100K per upgrade.
+            Max 540K per NFT for full evolution.
+          </p>
+        </div>
+        <div class="step">
+          <div class="step-num">03 / infrastructure</div>
+          <h3>100% on-chain metadata</h3>
+          <p>
+            Token image served via Vercel Edge from /api/metadata.
+            NFT phase read live from contract. No IPFS, no centralized storage.
+            Fully decentralized, fully open.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="nft-section" id="nft">
+    <div class="container">
+      <div class="nft-header">
+        <h2 class="section-title" style="margin-bottom: 0;">NFT Collection</h2>
+        <span style="color:var(--text-faint);font-size:14px;font-family:var(--font-mono);">1 design × 10 phases</span>
+      </div>
+      <div class="nft-grid" id="nft-grid">
+        <!-- Populated by app.js -->
+      </div>
+      <div class="phase-ladder" id="phase-ladder">
+        <!-- Populated by app.js -->
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 80px 0;" id="contracts">
+    <div class="container">
+      <h2 class="section-title">Contracts</h2>
+      <div class="contracts" id="contracts" style="max-width: 720px; margin: 0 auto;">
+        <!-- Populated by app.js -->
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="links">
+        <a href="/api/health" target="_blank">API Health</a>
+        <a href="/api/metadata" target="_blank">Token Metadata</a>
+        <a href="https://github.com/b20society/b20society" target="_blank">GitHub</a>
+      </div>
+      <div>B20 Society on Base. B20 is an experimental token standard by Robinhood.</div>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
