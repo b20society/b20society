@@ -1,7 +1,7 @@
 {
   "name": "b20society",
   "version": "0.1.0",
-  "description": "B20 Society — Self-evolving B20 token with dynamic NFT collection on Base",
+  "description": "B20 Society \u2014 Self-evolving B20 token with dynamic NFT collection on Base",
   "private": true,
   "scripts": {
     "dev": "vercel dev",
@@ -15,8 +15,5 @@
     "@types/node": "^26.4.0",
     "@vercel/node": "^8.1.2",
     "typescript": "^7.0.2"
-  },
-  "engines": {
-    "node": "20+"
   }
 }
