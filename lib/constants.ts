@@ -31,3 +31,9 @@ export const TIER_STEP = 11_111.11; // USD per tier
 
 // Cache TTL for metadata endpoint
 export const METADATA_CACHE_TTL = 10; // seconds
+
+// NFT contract configuration
+export const NFT_MAX_SUPPLY = 1000;
+export const NFT_MINT_PRICE_WEI = 1_000_000_000_000_000n; // 0.001 ETH
+export const NFT_MAX_PER_WALLET = 5;
+export const NFT_PHASE_COUNT = 10;

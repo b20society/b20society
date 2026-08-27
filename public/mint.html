@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mint — B20 Society NFT</title>
+  <meta name="description" content="Mint B20 Society NFT. 1 design × 10 phases, advance by burning $SOCIETY.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/jpeg" href="/images/Soc91.jpg">
+
+  <meta property="og:title" content="Mint — B20 Society NFT">
+  <meta property="og:description" content="Mint B20 Society NFT on Base. 1000 supply, 0.001 ETH per mint.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://b20society.com/mint">
+</head>
+<body>
+
+  <header>
+    <div class="container header-content">
+      <a class="logo" href="/">
+        <img class="logo-image" src="/images/Soc91.jpg" alt="B20 Society">
+        B20 Society
+      </a>
+      <nav class="header-nav">
+        <a href="/#token">Token</a>
+        <a href="/#how">How it works</a>
+        <a href="/#nft">NFT</a>
+        <a href="/mint" class="active">Mint</a>
+        <a href="/#contracts">Contracts</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero hero-mint">
+    <div class="container">
+      <h1>Mint B20 Society NFT</h1>
+      <p class="symbol">1000 supply · 0.001 ETH · max 5 per wallet</p>
+      <p class="tagline">
+        1 design × 10 phases. All NFTs mint at phase 1.
+        Advance phase by burning $SOCIETY: 20K → 30K → ... → 100K per upgrade.
+      </p>
+    </div>
+  </section>
+
+  <section class="mint-section">
+    <div class="container">
+      <div class="mint-grid">
+
+        <div class="mint-card">
+          <h2 class="mint-card-title">Live Status</h2>
+          <ul class="mint-stats">
+            <li>
+              <span class="label">Minted</span>
+              <span class="value" id="minted-count">—</span>
+            </li>
+            <li>
+              <span class="label">Available</span>
+              <span class="value" id="available-count">—</span>
+            </li>
+            <li>
+              <span class="label">Price</span>
+              <span class="value">0.001 ETH</span>
+            </li>
+            <li>
+              <span class="label">Per Wallet Cap</span>
+              <span class="value">5</span>
+            </li>
+          </ul>
+          <div class="progress-bar-wrap" style="margin-top: 16px;">
+            <div class="progress-bar" id="mint-progress"></div>
+          </div>
+          <p class="mint-pct" id="mint-pct">—</p>
+        </div>
+
+        <div class="mint-card mint-card-action">
+          <h2 class="mint-card-title">Mint</h2>
+
+          <button id="connect-btn" class="btn btn-primary btn-full">Connect Wallet</button>
+
+          <div id="wallet-info" style="display: none;">
+            <p class="wallet-address" id="wallet-address"></p>
+            <p class="wallet-mints">Your mints: <span id="user-mints">0</span> / 5</p>
+          </div>
+
+          <button id="mint-btn" class="btn btn-primary btn-full" disabled>
+            Mint NFT (0.001 ETH)
+          </button>
+
+          <p id="mint-status" class="mint-status"></p>
+
+          <p class="mint-note">
+            <strong>Phase evolution:</strong> After minting, burn $SOCIETY to advance your NFT
+            through 10 visual phases. Each upgrade burns more $SOCIETY than the last.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="your-nfts-section">
+    <div class="container">
+      <h2 class="section-title">Your NFTs</h2>
+      <div class="nft-grid" id="user-nfts">
+        <p class="empty-state" id="empty-state">Connect your wallet to see your NFTs.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="links">
+        <a href="/api/health" target="_blank">API Health</a>
+        <a href="/api/metadata" target="_blank">Token Metadata</a>
+        <a href="/api/config" target="_blank">Public Config</a>
+        <a href="https://github.com/b20society/b20society" target="_blank">GitHub</a>
+      </div>
+      <div>B20 Society on Base. B20 is an experimental token standard by Base.</div>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/mint.js"></script>
+</body>
+</html>
