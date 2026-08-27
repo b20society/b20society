@@ -4,19 +4,13 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { TOTAL_SUPPLY, TIER_STEP } from "../lib/constants";
+import { TIER_IMAGES, tierImageUrl, TIER_COUNT } from "../lib/tier-images";
 
 export const config = {
   runtime: "edge",
 };
 
-const TIER_IMAGE_COUNT = 100;
-
-function tierToUuid(tier: number): string {
-  // TODO: replace placeholder with actual UUIDs loaded from /lib/tier-images.ts
-  // For now, return a deterministic placeholder so the response shape is valid
-  const seed = `tier-${tier.toString().padStart(3, "0")}`;
-  return `placeholder-${seed}`;
-}
+const PUBLIC_DOMAIN = "https://b20society.com";
 
 export default async function handler(
   _req: VercelRequest,
@@ -28,10 +22,7 @@ export default async function handler(
     const stubMarketcapUsd = 0;
     const tier = Math.max(
       0,
-      Math.min(
-        TIER_IMAGE_COUNT - 1,
-        Math.floor(stubMarketcapUsd / TIER_STEP),
-      ),
+      Math.min(TIER_COUNT - 1, Math.floor(stubMarketcapUsd / TIER_STEP)),
     );
 
     const metadata = {
@@ -39,8 +30,8 @@ export default async function handler(
       symbol: "SOCIETY",
       description:
         "B20 Society — a self-evolving B20 token. Image reflects market cap.",
-      image: `https://b20society.com/images/${tierToUuid(tier)}.webp`,
-      external_url: "https://b20society.com",
+      image: tierImageUrl(tier, PUBLIC_DOMAIN),
+      external_url: PUBLIC_DOMAIN,
       attributes: [
         { trait_type: "Tier", value: tier },
         {
