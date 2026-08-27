@@ -25,8 +25,9 @@ export const POOL_MANAGER =
 // Total supply of SOCIETY token (1B with 18 decimals)
 export const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n;
 
-// Tier mapping: $0 → tier 0, $10K → tier 1, ..., $990K+ → tier 99
-export const TIER_STEP = 10_000; // USD per tier
+// Tier mapping: 91 tiers, $11,111.11 per tier (90 × $11,111.11 = $1,000,000).
+// Tier 0 = $0, tier 90 = $1M (capped).
+export const TIER_STEP = 11_111.11; // USD per tier
 
 // Cache TTL for metadata endpoint
 export const METADATA_CACHE_TTL = 10; // seconds
