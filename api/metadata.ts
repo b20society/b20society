@@ -4,7 +4,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { TOTAL_SUPPLY, METADATA_CACHE_TTL } from "../lib/constants";
-import { tierImageUrl } from "../lib/tier-images";
+import { tierImageUrl, TIER_COUNT } from "../lib/tier-images";
 import { computeMarketcap } from "../lib/marketcap";
 
 export const config = {
@@ -26,6 +26,11 @@ export default async function handler(
     }
 
     const result = await computeMarketcap(poolId);
+    const TIER_MAX = TIER_COUNT - 1; // 90 for 91-tier system
+    const progressPct = Math.min(
+      100,
+      Math.max(0, (result.tier / TIER_MAX) * 100),
+    );
 
     const metadata = {
       name: "B20 Society",
@@ -35,6 +40,7 @@ export default async function handler(
       image: tierImageUrl(result.tier, PUBLIC_DOMAIN),
       external_url: PUBLIC_DOMAIN,
       attributes: [
+        { trait_type: "Progress", value: `${progressPct.toFixed(1)}%` },
         { trait_type: "Tier", value: result.tier },
         {
           trait_type: "Market Cap (USD)",
