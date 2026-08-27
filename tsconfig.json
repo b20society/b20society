@@ -13,6 +13,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["api/**/*", "lib/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["api/**/*", "lib/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "lib/openzeppelin-contracts", "lib/forge-std"]
 }
