@@ -8,9 +8,8 @@
 //   /api/img/{tier_uuid}    -> /public/images/Soc{N}.jpg
 //   /api/img/{phase_uuid}   -> /public/images/nft/phase-N.gif
 //
-// The UUID prefix indicates which namespace:
-//   - tier UUIDs: random v4-like strings in TIER_UUIDS map (range 1-91)
-//   - phase UUIDs: distinct namespace in PHASE_UUIDS map (range 1-10)
+// Uses Vercel's Node.js runtime (not Edge) because Edge runtime can't
+// access the filesystem. Node.js runtime supports fs.readFile.
 //
 // Edge cache: 1 day (immutable content; tier/phase UUIDs are stable)
 
@@ -20,7 +19,7 @@ import { join } from "node:path";
 import { uuidToTier, uuidToPhase } from "../../lib/uuid-map";
 
 export const config = {
-  runtime: "nodejs20.x", // Need node fs to read files (edge runtime can't)
+  runtime: "nodejs",
 };
 
 const PUBLIC_DIR = join(process.cwd(), "public");
