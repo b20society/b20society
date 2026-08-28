@@ -19,6 +19,11 @@ export default async function handler(): Promise<Response> {
 
   return new Response(JSON.stringify(config, null, 2), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // Health endpoint exposes env vars which only change on deploy.
+      // Long edge cache to minimize function invocations.
+      "Cache-Control": "public, s-maxage=300, max-age=60",
+    },
   });
 }
