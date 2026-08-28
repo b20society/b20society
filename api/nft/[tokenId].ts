@@ -94,7 +94,7 @@ export default async function handler(
           image: phase === 1
             ? `${PUBLIC_DOMAIN}/images/Soc1.jpg`
             : `${PUBLIC_DOMAIN}/images/nft/phase-${phase}.gif`,
-          external_url: `${PUBLIC_DOMAIN}/nft/${tokenIdStr}`,
+          external_url: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
         },
         null,
         2,
