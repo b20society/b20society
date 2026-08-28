@@ -15,9 +15,9 @@ import { base } from "https://esm.sh/viem@2.56.0/chains";
 const NFT_ABI = parseAbi([
   "function mint() payable",
   "function totalSupply() view returns (uint256)",
-  "function maxSupply() view returns (uint256)",
-  "function maxPerWallet() view returns (uint256)",
-  "function mintPrice() view returns (uint256)",
+  "function MAX_SUPPLY() view returns (uint256)",
+  "function MAX_PER_WALLET() view returns (uint256)",
+  "function MINT_PRICE() view returns (uint256)",
   "function balanceOf(address owner) view returns (uint256)",
   "function phaseOf(uint256 tokenId) view returns (uint8)",
   "function burnCostFor(uint256 tokenId) view returns (uint256)",
@@ -128,7 +128,7 @@ async function loadContractStats() {
       state.publicClient.readContract({
         address: state.nftAddress,
         abi: NFT_ABI,
-        functionName: "maxSupply",
+        functionName: "MAX_SUPPLY",
       }),
     ]);
     state.totalSupply = total;
@@ -349,8 +349,14 @@ async function mint() {
     const mintPrice = await state.publicClient.readContract({
       address: state.nftAddress,
       abi: NFT_ABI,
-      functionName: "mintPrice",
+      functionName: "MINT_PRICE",
     });
+
+    if (typeof mintPrice !== "bigint" || mintPrice === 0n) {
+      setStatus("MINT_PRICE read returned invalid value. Check contract.", "error");
+      btn.disabled = false;
+      return;
+    }
 
     const hash = await state.walletClient.writeContract({
       account: state.account,

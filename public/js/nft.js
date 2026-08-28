@@ -20,9 +20,9 @@ const NFT_ABI = parseAbi([
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function advancePhase(uint256 tokenId)",
   "function balanceOf(address owner) view returns (uint256)",
-  "function mintPrice() view returns (uint256)",
+  "function MINT_PRICE() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
-  "function maxSupply() view returns (uint256)",
+  "function MAX_SUPPLY() view returns (uint256)",
 ]);
 
 const ERC20_ABI = parseAbi([
