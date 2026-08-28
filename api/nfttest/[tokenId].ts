@@ -1,18 +1,16 @@
-// TEST endpoint — returns mock NFT metadata for frontend testing
-// URL: /api/nfttest/[tokenId]
-//
-// By default: token is NOT minted (404) to simulate fresh launch.
-// Use ?minted=1,2,3,42 to mark specific tokens as minted.
-//
-//   GET /api/nfttest/42                   → 404 (default: not minted)
-//   GET /api/nfttest/42?minted=42         → 200, minted
-//   GET /api/nfttest/42?minted=1,42,100   → 200 for #1, #42, #100, 404 for others
-//   GET /api/nfttest/42?phase=7           → override phase (1-10)
-//   GET /api/nfttest/42?minted=1,2,3&phase=5  → minted at phase 5
-//
-// Real /api/nft/[tokenId] is unaffected.
+// NFT metadata endpoint (test path)
+// Same logic as /api/nft/[tokenId] — reads NFT contract for exists() and phaseOf().
+// The only difference is the URL path. Both endpoints are production-ready
+// and can be used by any wallet or frontend.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import {
+  createPublicClient,
+  http,
+  parseAbi,
+  fallback,
+} from "viem";
+import { base } from "viem/chains";
 import { NFT_MAX_SUPPLY } from "../../lib/constants";
 
 export const config = {
@@ -21,77 +19,106 @@ export const config = {
 
 const PUBLIC_DOMAIN = "https://b20society.com";
 
+const NFT_ABI = parseAbi([
+  "function phaseOf(uint256 tokenId) view returns (uint8)",
+  "function exists(uint256 tokenId) view returns (bool)",
+]);
+
+const client = createPublicClient({
+  chain: base,
+  transport: fallback([
+    http("https://base.drpc.org"),
+    http("https://mainnet.base.org"),
+  ]),
+});
+
 export default async function handler(
   req: VercelRequest,
   _res: VercelResponse,
 ): Promise<Response> {
-  const url = new URL(req.url ?? "/", PUBLIC_DOMAIN);
-  const match = url.pathname.match(/\/api\/nfttest\/(\d+)/);
-  const tokenIdStr = match?.[1];
+  try {
+    const url = new URL(req.url ?? "/", PUBLIC_DOMAIN);
+    const match = url.pathname.match(/\/api\/nfttest\/(\d+)/);
+    const tokenIdStr = match?.[1];
 
-  if (!tokenIdStr) {
-    return jsonError("TokenId required", 400);
-  }
+    if (!tokenIdStr) {
+      return jsonError("TokenId required", 400);
+    }
 
-  const tokenId = Number(tokenIdStr);
-  if (Number.isNaN(tokenId) || tokenId < 1 || tokenId > NFT_MAX_SUPPLY) {
-    return jsonError(
-      `TokenId out of range (must be 1-${NFT_MAX_SUPPLY})`,
-      400,
-    );
-  }
+    const tokenId = BigInt(tokenIdStr);
+    const tokenIdNum = Number(tokenId);
 
-  // Default: not minted. Override via ?minted=1,2,3
-  const mintedParam = url.searchParams.get("minted");
-  let isMinted = false;
-  if (mintedParam) {
-    const mintedList = mintedParam
-      .split(",")
-      .map((s) => Number(s.trim()))
-      .filter((n) => !Number.isNaN(n));
-    isMinted = mintedList.includes(tokenId);
-  }
+    if (tokenIdNum < 1 || tokenIdNum > NFT_MAX_SUPPLY) {
+      return jsonError(
+        `TokenId out of range (must be 1-${NFT_MAX_SUPPLY})`,
+        404,
+      );
+    }
 
-  if (!isMinted) {
-    return jsonError(
-      `[TEST] Token #${tokenIdStr} not minted yet (default: fresh launch)`,
-      404,
-    );
-  }
+    const nftContract = process.env.NFT_CONTRACT_ADDRESS as
+      | `0x${string}`
+      | undefined;
 
-  // Phase override
-  const phaseOverride = url.searchParams.get("phase");
-  let phase: number;
-  if (phaseOverride) {
-    phase = Math.min(10, Math.max(1, Number(phaseOverride)));
-  } else {
-    phase = 1; // default: freshly minted, all start at phase 1
-  }
+    if (!nftContract) {
+      return jsonError(
+        `Token #${tokenIdStr} not minted (NFT contract not deployed)`,
+        404,
+      );
+    }
 
-  return new Response(
-    JSON.stringify(
-      {
-        name: `B20 Society #${tokenIdStr}`,
-        description: "[TEST] B20 Society NFT — self-evolving through 10 phases via $SOCIETY burns. Mock data.",
-        image:
-          phase === 1
+    let phase = 1;
+    try {
+      const exists = (await client.readContract({
+        address: nftContract,
+        abi: NFT_ABI,
+        functionName: "exists",
+        args: [tokenId],
+      })) as boolean;
+
+      if (!exists) {
+        return jsonError(`Token #${tokenIdStr} not minted yet`, 404);
+      }
+
+      phase = (await client.readContract({
+        address: nftContract,
+        abi: NFT_ABI,
+        functionName: "phaseOf",
+        args: [tokenId],
+      })) as number;
+      if (phase < 1 || phase > 10) phase = 1;
+    } catch (err) {
+      console.warn(`Failed to read phase for #${tokenIdStr}:`, err);
+      return jsonError(`Token #${tokenIdStr} not found`, 404);
+    }
+
+    return new Response(
+      JSON.stringify(
+        {
+          name: `B20 Society #${tokenIdStr}`,
+          description:
+            "B20 Society NFT — self-evolving through 10 phases via $SOCIETY burns.",
+          image: phase === 1
             ? `${PUBLIC_DOMAIN}/images/Soc1.jpg`
             : `${PUBLIC_DOMAIN}/images/nft/phase-${phase}.gif`,
-        external_url: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
+          external_url: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
+        },
+        null,
+        2,
+      ),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=10",
+          "Access-Control-Allow-Origin": "*",
+          "X-Test-Endpoint": "true",
+        },
       },
-      null,
-      2,
-    ),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-        "Access-Control-Allow-Origin": "*",
-        "X-Test-Endpoint": "true",
-      },
-    },
-  );
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return jsonError(message, 500);
+  }
 }
 
 function jsonError(message: string, status: number): Response {
@@ -99,7 +126,6 @@ function jsonError(message: string, status: number): Response {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "no-store",
       "X-Test-Endpoint": "true",
     },
   });

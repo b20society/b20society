@@ -1,40 +1,34 @@
-// TEST endpoint — health check for test mode
-// URL: /api/healthtest
-
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+// Health check endpoint (test path)
+// Same logic as /api/health — reads the same env vars and returns the same data.
+// The only difference is the URL path. Both endpoints are production-ready
+// and can be used by any wallet or frontend.
 
 export const config = {
   runtime: "edge",
 };
 
-export default async function handler(
-  _req: VercelRequest,
-  _res: VercelResponse,
-): Promise<Response> {
-  return new Response(
-    JSON.stringify(
-      {
-        status: "ok",
-        test: true,
-        timestamp: Date.now(),
-        note: "Test endpoint. Real /api/health reports actual env state.",
-        env: {
-          V4_POOL_ID: "0x4200000000000000000000000000000000B20P00",
-          NFT_CONTRACT_ADDRESS: "0x4200000000000000000000000000000000B20NFT",
-          SOCIETY_ADDRESS: "0x4200000000000000000000000000000000B20SOC",
-        },
-      },
-      null,
-      2,
-    ),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-        "Access-Control-Allow-Origin": "*",
-        "X-Test-Endpoint": "true",
-      },
+export default async function handler(): Promise<Response> {
+  const config = {
+    status: "ok",
+    timestamp: Date.now(),
+    env: {
+      V4_POOL_ID: mask(process.env.V4_POOL_ID),
+      NFT_CONTRACT_ADDRESS: mask(process.env.NFT_CONTRACT_ADDRESS),
+      SOCIETY_ADDRESS: mask(process.env.SOCIETY_ADDRESS),
     },
-  );
+  };
+
+  return new Response(JSON.stringify(config, null, 2), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Test-Endpoint": "true",
+    },
+  });
+}
+
+function mask(value: string | undefined): string {
+  if (!value) return "<not set>";
+  if (value.length < 12) return "<set>";
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
