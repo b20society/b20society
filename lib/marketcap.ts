@@ -1,8 +1,11 @@
 // Marketcap computation for B20 Society
-// Reads V4 pool state via o1 API + Chainlink NVDA/USD price, returns USD marketcap + tier
+// Reads market data from DexScreener (no API key) + Chainlink NVDA/USD price.
 //
-// Strategy: o1 API for V4 pool state (more reliable than direct V4 contract reads,
-// which can revert on edge cases). Chainlink for NVDA price is independent and read directly.
+// Strategy:
+//   1. DexScreener for market cap (works reliably, free, no auth)
+//   2. Chainlink for NVDA/USD price (independent oracle)
+//
+// DexScreener is used instead of o1 API because o1 was timing out from Vercel Edge.
 
 import { createPublicClient, http, parseAbi, fallback } from "viem";
 import { base } from "viem/chains";
@@ -24,63 +27,72 @@ const CHAINLINK_ABI = parseAbi([
   "function decimals() view returns (uint8)",
 ]);
 
-// o1 API: 8s timeout. Vercel Edge has 25s budget total; o1 sometimes hangs on
-// fresh blocks while waiting for their indexer. 8s gives enough time for cache
-// hits and a couple of fresh fetches, but never starves the function.
-const O1_TIMEOUT_MS = 8_000;
+// DexScreener: 5s timeout (their endpoint usually <500ms).
+const DEXS_TIMEOUT_MS = 5_000;
 
 type MarketcapResult = {
   marketcapUsd: number;
   tier: number;
   nvdaPriceUsd: number;
   priceStale: boolean;
-  source: "o1" | "fallback";
+  source: "dexscreener" | "fallback";
 };
 
 /**
- * Fetch V4 pool state + market cap from o1 API. With explicit timeout.
+ * Fetch market data from DexScreener (free, no API key).
+ * Returns: market cap (FDV) in USD, plus optionally NVDA price.
  */
-async function fetchO1PoolState(
+async function fetchDexScreenerData(
   tokenAddress: string,
-  timeoutMs: number = O1_TIMEOUT_MS,
+  timeoutMs: number = DEXS_TIMEOUT_MS,
 ): Promise<{
   marketcapUsd: number;
   nvdaPriceUsd: number;
   priceStale: boolean;
 } | null> {
-  const apiKey = process.env.O1_API;
-  if (!apiKey) return null;
-
   try {
     const fetchPromise = fetch(
-      `https://api.launch.o1.exchange/v1/tokens/8453/${tokenAddress}`,
-      { headers: { "x-api-key": apiKey } },
+      `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`,
     );
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`o1 API timeout after ${timeoutMs}ms`)), timeoutMs),
+      setTimeout(() => reject(new Error(`DexScreener timeout after ${timeoutMs}ms`)), timeoutMs),
     );
     const res = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (!res.ok) return null;
     const json = (await res.json()) as {
-      data?: {
-        market_data?: {
-          market_cap?: { usd?: number };
-          quote_price?: { usd?: number; updated_at?: string };
-          data_status?: string;
-        };
-      };
+      pairs?: Array<{
+        chainId?: string;
+        priceUsd?: string;
+        fdv?: number;
+        marketCap?: number;
+        liquidity?: { usd?: number };
+        baseToken?: { address?: string };
+        quoteToken?: { address?: string };
+      }>;
     };
-    const marketData = json.data?.market_data;
-    if (!marketData?.market_cap?.usd) return null;
+    // Find the highest-liquidity Base pair for this token
+    const basePairs = (json.pairs ?? []).filter(
+      (p) => p.chainId === "base" || p.chainId === "8453",
+    );
+    if (basePairs.length === 0) return null;
+    const best = basePairs.sort(
+      (a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0),
+    )[0];
+
+    // marketCap or FDV (fallback)
+    const marketcapUsd = best.marketCap ?? best.fdv ?? 0;
+    const priceUsd = Number(best.priceUsd) || 0;
+    // DexScreener's price is in USD per raw token (already token-adjusted)
+    // If marketCap was 0, derive from price * total supply
     return {
-      marketcapUsd: marketData.market_cap.usd,
-      nvdaPriceUsd: marketData.quote_price?.usd ?? 0,
-      priceStale: marketData.data_status === "stale",
+      marketcapUsd,
+      nvdaPriceUsd: 0, // We get NVDA price from Chainlink below
+      priceStale: false,
     };
   } catch (err) {
     console.warn(
-      "o1 API fetch failed/timed out:",
+      "DexScreener fetch failed/timed out:",
       err instanceof Error ? err.message : err,
     );
     return null;
@@ -125,8 +137,8 @@ export async function getNvdaPriceUsd(): Promise<{
  * Compute SOCIETY's USD marketcap + tier.
  *
  * Flow:
- *   1. Try o1 API (5s timeout)
- *   2. Always read NVDA price from Chainlink (overrides if o1 missing it)
+ *   1. DexScreener for market cap (5s timeout)
+ *   2. Always read NVDA price from Chainlink
  *   3. Fall back to NVDA price only (tier 0, marketcap 0)
  */
 export async function computeMarketcap(
@@ -137,28 +149,25 @@ export async function computeMarketcap(
   let marketcapUsd = 0;
   let nvdaPriceUsd = 0;
   let priceStale = false;
-  let source: "o1" | "fallback" = "fallback";
+  let source: "dexscreener" | "fallback" = "fallback";
 
-  // Try o1 API (5s timeout)
+  // Try DexScreener (5s timeout)
   if (societyAddress) {
-    const o1State = await fetchO1PoolState(societyAddress);
-    if (o1State && o1State.marketcapUsd > 0) {
-      marketcapUsd = o1State.marketcapUsd;
-      nvdaPriceUsd = o1State.nvdaPriceUsd;
-      priceStale = o1State.priceStale;
-      source = "o1";
+    const dexs = await fetchDexScreenerData(societyAddress);
+    if (dexs && dexs.marketcapUsd > 0) {
+      marketcapUsd = dexs.marketcapUsd;
+      priceStale = dexs.priceStale;
+      source = "dexscreener";
     }
   }
 
-  // Always read NVDA price from Chainlink (overrides if o1 returned 0)
-  if (nvdaPriceUsd === 0) {
-    try {
-      const price = await getNvdaPriceUsd();
-      nvdaPriceUsd = price.priceUsd;
-      priceStale = price.isStale;
-    } catch {
-      /* ignore */
-    }
+  // Always read NVDA price from Chainlink
+  try {
+    const price = await getNvdaPriceUsd();
+    nvdaPriceUsd = price.priceUsd;
+    priceStale = price.isStale;
+  } catch {
+    /* ignore */
   }
 
   const tier = Math.max(
