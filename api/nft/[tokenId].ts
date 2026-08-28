@@ -26,7 +26,8 @@ const NFT_ABI = parseAbi([
 const client = createPublicClient({
   chain: base,
   transport: fallback([
-    http("https://base.drpc.org"),
+    // Use BASE_RPC env var (Alchemy) if set, else fall back to public RPCs
+    http(process.env.BASE_RPC ?? "https://base.drpc.org"),
     http("https://mainnet.base.org"),
   ]),
 });

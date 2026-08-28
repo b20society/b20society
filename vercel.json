@@ -5,6 +5,8 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/mint", "destination": "/mint.html" }
+    { "source": "/mint", "destination": "/mint.html" },
+    { "source": "/upgrade", "destination": "/upgrade.html" },
+    { "source": "/nft", "destination": "/nft.html" }
   ]
 }

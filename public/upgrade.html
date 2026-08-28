@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upgrade — B20 Society NFT</title>
+  <meta name="description" content="Burn $SOCIETY to advance your B20 Society NFT through 10 phases.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/jpeg" href="/images/Soc91.jpg">
+
+  <meta property="og:title" content="Upgrade — B20 Society NFT">
+  <meta property="og:description" content="Burn $SOCIETY to advance your B20 Society NFT through 10 phases.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://b20society.com/upgrade">
+</head>
+<body>
+
+  <header>
+    <div class="container header-content">
+      <a class="logo" href="/">
+        <img class="logo-image" src="/images/Soc91.jpg" alt="B20 Society">
+        B20 Society
+      </a>
+      <nav class="header-nav">
+        <a href="/#token">Token</a>
+        <a href="/#how">How it works</a>
+        <a href="/#nft">NFT</a>
+        <a href="/mint">Mint</a>
+        <a href="/upgrade" class="active">Upgrade</a>
+        <a href="/#contracts">Contracts</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero hero-mint">
+    <div class="container">
+      <h1>Upgrade Your NFT</h1>
+      <p class="symbol">Burn $SOCIETY · Advance Phase 1 → 10</p>
+      <p class="tagline">
+        Each NFT can evolve through 10 visual phases. Burn $SOCIETY to unlock
+        the next phase. Costs are linear: 20K → 30K → ... → 100K per upgrade.
+        Max phase is <strong>Phase 10</strong> (costs 540K $SOCIETY total).
+      </p>
+    </div>
+  </section>
+
+  <section class="upgrade-section">
+    <div class="container">
+
+      <!-- Wallet panel -->
+      <div class="upgrade-panel">
+        <div class="upgrade-panel-head">
+          <h2>Wallet</h2>
+          <button id="action-btn" class="btn btn-primary">Connect Wallet</button>
+        </div>
+        <div id="wallet-info" class="upgrade-wallet-info" style="display: none;">
+          <div class="upgrade-wallet-row">
+            <span class="meta-label">Address</span>
+            <span class="meta-value mono" id="wallet-address">—</span>
+          </div>
+          <div class="upgrade-wallet-row">
+            <span class="meta-label">$SOCIETY balance</span>
+            <span class="meta-value" id="society-balance">—</span>
+          </div>
+          <div class="upgrade-wallet-row">
+            <span class="meta-label">NFTs owned</span>
+            <span class="meta-value"><span id="user-mints">0</span> / 5</span>
+          </div>
+          <div class="upgrade-wallet-row">
+            <span class="meta-label">Burn contract allowance</span>
+            <span class="meta-value" id="allowance-value">—</span>
+          </div>
+        </div>
+        <p id="upgrade-status" class="mint-status"></p>
+      </div>
+
+      <!-- Phase guide -->
+      <div class="upgrade-panel">
+        <h2>Phase Cost Curve</h2>
+        <div class="phase-table-wrap">
+          <table class="phase-table">
+            <thead>
+              <tr>
+                <th>From → To</th>
+                <th>Burn $SOCIETY</th>
+                <th>Cumulative</th>
+              </tr>
+            </thead>
+            <tbody id="phase-table-body">
+              <!-- populated by upgrade.js -->
+            </tbody>
+          </table>
+        </div>
+        <p class="phase-table-note">
+          Phase 10 is the max. After reaching it, no more burns are possible.
+        </p>
+      </div>
+
+      <!-- Your NFTs (with burn button) -->
+      <div class="upgrade-panel">
+        <h2>Your NFTs</h2>
+        <p class="muted">Click <strong>Burn to advance</strong> on any NFT to consume $SOCIETY and evolve to the next phase. The NFT image will update immediately after the transaction confirms.</p>
+        <div class="nft-grid" id="user-nfts">
+          <p class="empty-state" id="empty-state">Connect your wallet to see your NFTs.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="links">
+        <a href="/api/health" target="_blank">API Health</a>
+        <a href="/api/metadata" target="_blank">Token Metadata</a>
+        <a href="/api/config" target="_blank">Public Config</a>
+        <a href="https://dexscreener.com/base/0xf3cb9cbbc8d4192df3f44196ae543b14ea83f1dc9d3555f557b56b3995ed4af6" target="_blank" rel="noopener">DexScreener ↗</a>
+        <a href="https://basescan.org/address/0xbF3841f149A5c2A45baf36dA2C925B8158e84863" target="_blank" rel="noopener">NFT Contract ↗</a>
+        <a href="https://github.com/b20society/b20society" target="_blank">GitHub</a>
+      </div>
+      <div>B20 Society on Base. B20 is an experimental token standard by Base.</div>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/upgrade.js"></script>
+</body>
+</html>
