@@ -93,10 +93,17 @@ function formatSoc(wei) {
 // ---------- TokenId parsing ----------
 
 function parseTokenId() {
-  // Path: /nft/{tokenId} or /nft/{tokenId}/
-  const match = window.location.pathname.match(/^\/nft\/(\d+)\/?$/);
-  if (!match) return null;
-  const id = Number(match[1]);
+  // Path 1: /nft?id=42 (cleanUrls)
+  // Path 2: /nft.html?id=42
+  // Path 3: /nft/42 (rewrite support)
+  const params = new URLSearchParams(window.location.search);
+  let idStr = params.get("id");
+  if (!idStr) {
+    const pathMatch = window.location.pathname.match(/^\/nft\/(\d+)\/?$/);
+    if (pathMatch) idStr = pathMatch[1];
+  }
+  if (!idStr) return null;
+  const id = Number(idStr);
   if (id < 1 || id > MAX_SUPPLY) return null;
   return id;
 }
