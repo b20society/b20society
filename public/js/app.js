@@ -226,10 +226,12 @@ function renderContracts() {
   if (!wrap) return;
   const e = state.env || {};
   const items = [];
+  // B20 Society token → DexScreener (works) + basescan (just the addr, no token info)
   items.push({
     label: "SOCIETY Token",
     addr: e.SOCIETY_ADDRESS,
-    href: e.SOCIETY_ADDRESS ? `https://basescan.org/address/${e.SOCIETY_ADDRESS}` : null,
+    href: "https://dexscreener.com/base/0xf3cb9cbbc8d4192df3f44196ae543b14ea83f1dc9d3555f557b56b3995ed4af6",
+    sub: e.SOCIETY_ADDRESS ? `https://basescan.org/address/${e.SOCIETY_ADDRESS}` : null,
   });
   items.push({
     label: "NFT Contract",
@@ -269,7 +271,9 @@ function renderContracts() {
         <span class="label">${it.label}</span>
         ${
           it.addr && it.addr !== "<not set>"
-            ? `<a class="address" href="${it.href || "#"}" target="_blank" rel="noopener">${it.addr}<span class="ext">↗</span></a>`
+            ? `<a class="address" href="${it.href || "#"}" target="_blank" rel="noopener">${it.addr}<span class="ext">↗</span></a>${
+                it.sub ? ` <a class="sub-link" href="${it.sub}" target="_blank" rel="noopener" title="BaseScan (no token info)">etherscan</a>` : ""
+              }`
             : `<span class="address" style="color:var(--text-faint)">Pending deploy</span>`
         }
       </div>
