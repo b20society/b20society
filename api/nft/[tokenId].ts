@@ -13,7 +13,7 @@ import {
   fallback,
 } from "viem";
 import { base } from "viem/chains";
-import { NFT_MAX_SUPPLY } from "../lib/constants";
+import { NFT_MAX_SUPPLY } from "../../lib/constants";
 
 export const config = {
   runtime: "edge",
