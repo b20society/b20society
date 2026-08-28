@@ -252,7 +252,7 @@ async function renderUserNfts() {
     const card = document.createElement("div");
     card.className = "nft-card nft-card-mint";
     card.innerHTML = `
-      <img src="/images/nft/phase-${phase}.gif" alt="B20 Society NFT #${idStr}" loading="lazy">
+      <img src="${phase === 1 ? '/images/Soc1.jpg' : `/images/nft/phase-${phase}.gif`}" alt="B20 Society NFT #${idStr}" loading="lazy">
       <div class="nft-card-info">
         <span class="id">#${idStr}</span>
         <span class="phase">P${phase}</span>

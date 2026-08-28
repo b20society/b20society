@@ -153,7 +153,7 @@ function renderNfts() {
       window.open(`https://b20society.com/api/nft/${id}`, "_blank");
     };
     card.innerHTML = `
-      <img src="${data?.image || `/images/nft/phase-${phase || 1}.gif`}" alt="NFT #${id}" loading="lazy">
+      <img src="${data?.image || (phase === 1 ? '/images/Soc1.jpg' : `/images/nft/phase-${phase || 1}.gif`)}" alt="NFT #${id}" loading="lazy">
       <div class="nft-card-info">
         <span class="id">#${id}</span>
         <span class="phase">P${phase || "—"}</span>
