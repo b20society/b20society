@@ -163,12 +163,12 @@ async function fetchMetadata() {
 async function loadOnchainData() {
   if (!state.nftAddress) return;
   try {
-    const exists = (await state.publicClient.readContract({
+    const exists = await state.publicClient.readContract({
       address: state.nftAddress,
       abi: NFT_ABI,
       functionName: "exists",
       args: [BigInt(state.tokenId)],
-    })) as boolean;
+    });
     if (!exists) return false;
 
     const [owner, phase, cost, totalSupply] = await Promise.all([
@@ -197,12 +197,12 @@ async function loadOnchainData() {
       }),
     ]);
 
-    state.owner = owner as string;
-    state.phase = phase as number;
-    state.burnCost = cost as bigint;
+    state.owner = owner;
+    state.phase = phase;
+    state.burnCost = cost;
 
     if (state.account) {
-      state.isOwner = state.account.toLowerCase() === (owner as string).toLowerCase();
+      state.isOwner = state.account.toLowerCase() === owner.toLowerCase();
     }
 
     setText("nft-owner", shortAddress(state.owner));
@@ -222,12 +222,12 @@ async function loadOnchainData() {
 async function loadSocietyBalance() {
   if (!state.societyAddress || !state.account) return;
   try {
-    state.societyBalance = (await state.publicClient.readContract({
+    state.societyBalance = await state.publicClient.readContract({
       address: state.societyAddress,
       abi: ERC20_ABI,
       functionName: "balanceOf",
       args: [state.account],
-    })) as bigint;
+    });
   } catch (err) {
     console.error("Failed to read $SOCIETY balance:", err);
   }
@@ -274,7 +274,7 @@ function renderMetadata() {
 }
 
 function showState(stateName) {
-  ["loading-state", "error-state", "invalid-state", "nft-state"].forEach((s) => {
+  ["loading-state", "error-state", "invalid-state", "unminted-state", "nft-state"].forEach((s) => {
     if (s === stateName) show(s);
     else hide(s);
   });
@@ -305,8 +305,8 @@ async function connectWallet() {
         functionName: "ownerOf",
         args: [BigInt(state.tokenId)],
       });
-      state.owner = owner as string;
-      state.isOwner = state.account.toLowerCase() === (owner as string).toLowerCase();
+      state.owner = owner;
+      state.isOwner = state.account.toLowerCase() === owner.toLowerCase();
       setText("nft-owner", shortAddress(state.owner));
     }
     updateActionButton();
@@ -346,12 +346,12 @@ async function burnAndAdvance() {
   setStatus(`Burning ${formatSoc(state.burnCost)} $${state.societySymbol}...`, "info");
 
   try {
-    const allowance = (await state.publicClient.readContract({
+    const allowance = await state.publicClient.readContract({
       address: state.societyAddress,
       abi: ERC20_ABI,
       functionName: "allowance",
       args: [state.account, state.nftAddress],
-    })) as bigint;
+    });
 
     if (allowance < state.burnCost) {
       setStatus(`Approving $${state.societySymbol}...`, "info");
@@ -422,11 +422,11 @@ async function init() {
 
     if (state.societyAddress) {
       try {
-        state.societySymbol = (await state.publicClient.readContract({
+        state.societySymbol = await state.publicClient.readContract({
           address: state.societyAddress,
           abi: ERC20_ABI,
           functionName: "symbol",
-        })) as string;
+        });
       } catch (err) {
         console.warn("Could not read $SOCIETY symbol:", err);
       }
@@ -470,9 +470,9 @@ async function init() {
       return;
     }
   } else {
-    // Stub mode: use phase from image URL
-    const phaseMatch = metadata.image.match(/phase-(\d+)/);
-    if (phaseMatch) state.phase = Number(phaseMatch[1]);
+    // Stub mode: phase defaults to 1 (can't be determined from API URL
+    // now that images are UUID-named)
+    state.phase = 1;
     setText("nft-burn-cost", "Connect contract to see cost");
     setText("nft-mint-position", `#${tokenId} of ${MAX_SUPPLY}`);
   }
