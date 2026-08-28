@@ -54,35 +54,41 @@ export default async function handler(
       );
     }
 
-    let phase = 1;
     const nftContract = process.env.NFT_CONTRACT_ADDRESS as
       | `0x${string}`
       | undefined;
 
-    if (nftContract) {
-      try {
-        const exists = (await client.readContract({
-          address: nftContract,
-          abi: NFT_ABI,
-          functionName: "exists",
-          args: [tokenId],
-        })) as boolean;
+    if (!nftContract) {
+      // Contract not deployed yet. Don't pretend NFTs are minted.
+      return jsonError(
+        `Token #${tokenIdStr} not minted (NFT contract not deployed)`,
+        404,
+      );
+    }
 
-        if (!exists) {
-          return jsonError(`Token #${tokenIdStr} not minted yet`, 404);
-        }
+    let phase = 1;
+    try {
+      const exists = (await client.readContract({
+        address: nftContract,
+        abi: NFT_ABI,
+        functionName: "exists",
+        args: [tokenId],
+      })) as boolean;
 
-        phase = (await client.readContract({
-          address: nftContract,
-          abi: NFT_ABI,
-          functionName: "phaseOf",
-          args: [tokenId],
-        })) as number;
-        if (phase < 1 || phase > 10) phase = 1;
-      } catch (err) {
-        console.warn(`Failed to read phase for #${tokenIdStr}:`, err);
-        return jsonError(`Token #${tokenIdStr} not found`, 404);
+      if (!exists) {
+        return jsonError(`Token #${tokenIdStr} not minted yet`, 404);
       }
+
+      phase = (await client.readContract({
+        address: nftContract,
+        abi: NFT_ABI,
+        functionName: "phaseOf",
+        args: [tokenId],
+      })) as number;
+      if (phase < 1 || phase > 10) phase = 1;
+    } catch (err) {
+      console.warn(`Failed to read phase for #${tokenIdStr}:`, err);
+      return jsonError(`Token #${tokenIdStr} not found`, 404);
     }
 
     return new Response(
