@@ -84,7 +84,16 @@
 
           <div id="wallet-info" style="display: none;">
             <p class="wallet-address" id="wallet-address"></p>
-            <p class="wallet-mints">Your mints: <span id="user-mints">0</span> / 5</p>
+            <div class="wallet-meta">
+              <div>
+                <span class="meta-label">Your $SOCIETY</span>
+                <span class="meta-value" id="society-balance">—</span>
+              </div>
+              <div>
+                <span class="meta-label">Your Mints</span>
+                <span class="meta-value"><span id="user-mints">0</span> / 5</span>
+              </div>
+            </div>
           </div>
 
           <button id="mint-btn" class="btn btn-primary btn-full" disabled>
