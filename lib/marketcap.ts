@@ -10,12 +10,7 @@
 
 import { createPublicClient, http, parseAbi, fallback } from "viem";
 import { base } from "viem/chains";
-import {
-  CHAINLINK_NVDA_FEED,
-  TIER_STEP,
-  POOL_MANAGER,
-  NVDA_ADDRESS,
-} from "./constants";
+import { CHAINLINK_NVDA_FEED, TIER_STEP } from "./constants";
 import { TIER_COUNT } from "./tier-images";
 
 const client = createPublicClient({
@@ -33,16 +28,18 @@ const CHAINLINK_ABI = parseAbi([
   "function decimals() view returns (uint8)",
 ]);
 
-const POOL_MANAGER_ABI = parseAbi([
-  "function extsload(bytes32 slot) view returns (bytes32",
-]);
-
 // O1 API timeout: 5s. Vercel Edge has 25s budget, but o1 is sometimes slow on fresh blocks.
 const O1_TIMEOUT_MS = 5_000;
 
 // In-memory cache. Edge functions are warm for ~5 min after first invocation.
-type CacheEntry = { ts: number; data: ReturnType<typeof computeMarketcap> extends Promise<infer T> ? T : never };
-let cache: CacheEntry | null = null;
+type MarketcapResult = {
+  marketcapUsd: number;
+  tier: number;
+  nvdaPriceUsd: number;
+  priceStale: boolean;
+  source: "o1" | "cache" | "fallback";
+};
+let cache: { ts: number; data: MarketcapResult } | null = null;
 const CACHE_TTL_MS = 10_000; // 10s, matches API Cache-Control header
 
 /**
@@ -163,13 +160,7 @@ export async function getNvdaPriceUsd(): Promise<{
  */
 export async function computeMarketcap(
   poolId: `0x${string}`,
-): Promise<{
-  marketcapUsd: number;
-  tier: number;
-  nvdaPriceUsd: number;
-  priceStale: boolean;
-  source: "o1" | "cache" | "fallback";
-}> {
+): Promise<MarketcapResult> {
   // Check cache first
   if (cache && Date.now() - cache.ts < CACHE_TTL_MS) {
     return { ...cache.data, source: "cache" };
