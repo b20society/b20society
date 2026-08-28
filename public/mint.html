@@ -34,8 +34,24 @@
         <a href="/upgrade">Upgrade</a>
         <a href="/#contracts">Contracts</a>
       </nav>
+      <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
+        <span class="hamburger-box">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </span>
+      </button>
     </div>
   </header>
+  <div class="mobile-menu-backdrop" id="menu-backdrop"></div>
+  <nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation">
+    <a href="/#token">Token</a>
+    <a href="/#how">How it works</a>
+    <a href="/#nft">NFT</a>
+    <a href="/mint" class="active">Mint</a>
+    <a href="/upgrade">Upgrade</a>
+    <a href="/#contracts">Contracts</a>
+  </nav>
 
   <section class="hero hero-mint">
     <div class="container">
@@ -133,6 +149,7 @@
     </div>
   </footer>
 
+  <script src="/js/mobile-menu.js"></script>
   <script type="module" src="/js/mint.js"></script>
 </body>
 </html>

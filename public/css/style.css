@@ -120,6 +120,97 @@ header {
   opacity: 1;
 }
 
+/* Hamburger button (mobile only) */
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hamburger-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 24px;
+}
+
+.hamburger-line {
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+/* Mobile menu drawer (hidden by default) */
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  max-width: 80vw;
+  height: 100vh;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+  z-index: 200;
+  padding: 80px 24px 24px;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+.mobile-menu.is-open {
+  transform: translateX(0);
+}
+
+.mobile-menu a {
+  display: block;
+  padding: 16px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-light);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-menu a:last-child {
+  border-bottom: none;
+}
+
+.mobile-menu a:hover,
+.mobile-menu a.active {
+  color: var(--accent);
+}
+
+.mobile-menu-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 150;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.mobile-menu-backdrop.is-open {
+  opacity: 1;
+}
+
+body.menu-open {
+  overflow: hidden;
+}
+
 /* ---------- Hero ---------- */
 .hero {
   padding: 96px 0 64px;
@@ -1089,6 +1180,15 @@ footer .links a {
   .header-nav {
     display: none;
   }
+  .hamburger {
+    display: flex;
+  }
+  .mobile-menu {
+    display: flex;
+  }
+  .mobile-menu-backdrop {
+    display: block;
+  }
 }
 
 /* ---------- Loading state ---------- */
@@ -1289,11 +1389,153 @@ footer .links a {
 }
 
 @media (max-width: 640px) {
+  /* Container & typography */
+  .container {
+    padding: 0 16px;
+  }
+  h1 {
+    font-size: 28px !important;
+  }
+  h2 {
+    font-size: 20px !important;
+  }
+  .section-title {
+    font-size: 22px !important;
+  }
+  .symbol {
+    font-size: 14px !important;
+  }
+  .tagline {
+    font-size: 14px !important;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 32px 0 24px;
+  }
+  .hero h1 {
+    font-size: 32px;
+  }
+  .hero .tagline {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .token-hero-image-wrap {
+    max-width: 280px;
+    margin: 0 auto;
+  }
+
+  /* NFT grid -> 1 column on phone */
+  .nft-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .phases {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .phase-bar {
+    font-size: 11px;
+  }
+
+  /* Token section */
+  .token-info h2 {
+    font-size: 18px;
+  }
+  .tier-display {
+    font-size: 36px;
+  }
+  .marketcap-display {
+    font-size: 28px;
+  }
+  .meta-list {
+    font-size: 14px;
+  }
+
+  /* Steps section */
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .step {
+    padding: 16px;
+  }
+
+  /* Contract addresses */
+  .contracts {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .contracts > div {
+    padding: 12px;
+  }
+  .contracts .label {
+    font-size: 10px;
+  }
+  .contracts .address {
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .contracts .sub-link {
+    margin-left: 0;
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  /* Mint page */
+  .mint-card {
+    padding: 20px;
+  }
+  .wallet-meta {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .wallet-meta > div {
+    width: 100%;
+  }
+
+  /* NFT detail page */
+  .nft-detail-section {
+    padding: 24px 0 64px;
+  }
+  .nft-detail-info {
+    padding: 0;
+  }
+  .nft-detail-title {
+    font-size: 24px;
+  }
+  .nft-detail-desc {
+    font-size: 14px;
+  }
+  .nft-meta-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .nft-meta-list .label {
+    font-size: 11px;
+  }
+  .nft-meta-list .value {
+    font-size: 14px;
+  }
+
+  /* Upgrade page */
+  .upgrade-section {
+    padding: 24px 0 64px;
+  }
   .upgrade-panel {
     padding: 20px;
   }
   .upgrade-panel h2 {
     font-size: 18px;
+  }
+  .upgrade-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .upgrade-wallet-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
   .phase-table {
     font-size: 12px;
@@ -1301,5 +1543,59 @@ footer .links a {
   .phase-table th,
   .phase-table td {
     padding: 8px 6px;
+  }
+  .phase-table-wrap {
+    margin: 0 -20px;
+    padding: 0 20px;
+  }
+
+  /* Buttons */
+  .btn {
+    min-height: 44px; /* iOS/Android tap target */
+    padding: 12px 20px;
+  }
+  .btn-sm {
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+
+  /* Footer */
+  footer {
+    padding: 32px 0;
+    font-size: 12px;
+  }
+  footer .links {
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 0 16px;
+  }
+  footer .links a {
+    font-size: 13px;
+  }
+
+  /* Header (logo size) */
+  .logo {
+    font-size: 16px;
+  }
+  .logo-image,
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Status messages */
+  .state-message {
+    margin: 40px 0;
+    padding: 32px 20px;
+  }
+}
+
+/* Tablet 641-900px */
+@media (min-width: 641px) and (max-width: 900px) {
+  .nft-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .phases {
+    grid-template-columns: repeat(5, 1fr);
   }
 }
