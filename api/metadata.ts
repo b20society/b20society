@@ -1,18 +1,20 @@
 // Token metadata endpoint
 // Returns ERC-7572 metadata for B20 Society (SOCIETY) token
 // Image is dynamic based on the token's USD market cap tier (V4 + Chainlink)
+//
+// NVDA price is ALWAYS read from Chainlink (independent of V4_POOL_ID).
+// Market cap is only computed when V4_POOL_ID is set.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { TOTAL_SUPPLY, METADATA_CACHE_TTL } from "../lib/constants";
+import { TOTAL_SUPPLY, METADATA_CACHE_TTL, CHAINLINK_NVDA_FEED } from "../lib/constants";
 import { tierImageUrl, TIER_COUNT } from "../lib/tier-images";
-import { computeMarketcap } from "../lib/marketcap";
+import { computeMarketcap, getNvdaPriceUsd } from "../lib/marketcap";
 
 export const config = {
   runtime: "edge",
 };
 
 const PUBLIC_DOMAIN = "https://b20society.com";
-// Stub mode shows tier 0 = the lowest-marketcap image (Soc1.jpg)
 const STUB_IMAGE = `${PUBLIC_DOMAIN}/images/Soc1.jpg`;
 
 export default async function handler(
@@ -21,8 +23,20 @@ export default async function handler(
 ): Promise<Response> {
   try {
     const poolId = process.env.V4_POOL_ID as `0x${string}` | undefined;
+
+    // Always read NVDA price from Chainlink (works in both stub and live mode)
+    let nvdaPriceUsd = 0;
+    let priceStale = true;
+    try {
+      const price = await getNvdaPriceUsd();
+      nvdaPriceUsd = price.priceUsd;
+      priceStale = price.isStale;
+    } catch (err) {
+      console.warn("Failed to read NVDA price:", err);
+    }
+
     if (!poolId) {
-      return jsonResponse(stubMetadata(0, "no V4_POOL_ID set"));
+      return jsonResponse(stubMetadata(0, "no V4_POOL_ID set", nvdaPriceUsd, priceStale));
     }
 
     const result = await computeMarketcap(poolId);
@@ -62,7 +76,7 @@ export default async function handler(
   }
 }
 
-function stubMetadata(tier: number, reason: string) {
+function stubMetadata(tier: number, reason: string, nvdaPriceUsd: number, priceStale: boolean) {
   return {
     name: "B20 Society",
     symbol: "SOCIETY",
@@ -71,6 +85,10 @@ function stubMetadata(tier: number, reason: string) {
     external_url: PUBLIC_DOMAIN,
     attributes: [
       { trait_type: "Tier", value: tier },
+      { trait_type: "Market Cap (USD)", value: "0" },
+      { trait_type: "NVDA Price (USD)", value: nvdaPriceUsd.toFixed(2) },
+      { trait_type: "Total Supply", value: TOTAL_SUPPLY.toString() },
+      { trait_type: "Price Feed Stale", value: priceStale ? "Yes" : "No" },
       { trait_type: "Stub Mode", value: reason },
     ],
   };

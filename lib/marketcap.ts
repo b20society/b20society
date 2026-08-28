@@ -107,7 +107,7 @@ async function getPoolState(poolId: `0x${string}`): Promise<{
  * Read the latest NVDA/USD price from Chainlink.
  * Returns the price as a Number (USD per NVDA).
  */
-async function getNvdaPriceUsd(): Promise<{
+export async function getNvdaPriceUsd(): Promise<{
   priceUsd: number;
   updatedAt: number;
   isStale: boolean;
