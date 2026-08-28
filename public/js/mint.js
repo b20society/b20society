@@ -226,6 +226,8 @@ async function loadUserMints() {
     renderUserNfts();
   } catch (err) {
     console.error("Failed to read user mints:", err);
+    setStatus(`Failed to load your NFTs: ${err.shortMessage || err.message || "unknown"}`, "error");
+    throw err; // re-throw so caller knows it failed
   }
 }
 
@@ -481,9 +483,46 @@ async function init() {
 
     // Auto-reload stats every 30s
     setInterval(loadContractStats, 30_000);
+
+    // Auto-reload user mints every 15s (only if wallet connected)
+    setInterval(() => {
+      if (state.account) {
+        loadUserMints().catch(() => {});
+        loadSocietyBalance().catch(() => {});
+      }
+    }, 15_000);
+
+    // Try silent reconnect if MetaMask was previously connected
+    await trySilentReconnect();
   } catch (err) {
     console.error(err);
     setStatus("Failed to initialize. Refresh the page.", "error");
+  }
+}
+
+async function trySilentReconnect() {
+  if (typeof window === "undefined" || !window.ethereum) return;
+  try {
+    const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (accounts && accounts.length > 0) {
+      console.log("Auto-reconnecting to:", accounts[0]);
+      state.account = accounts[0];
+      state.walletClient = await ensureWalletClient();
+      // Try switch chain silently
+      try {
+        await state.walletClient.switchChain({ id: 8453 });
+      } catch (e) {
+        /* ignore */
+      }
+      $("wallet-info").style.display = "block";
+      setText("wallet-address", shortAddress(state.account));
+      updateActionButton();
+      setStatus("Wallet reconnected. Loading your NFTs...", "info");
+      await Promise.all([loadUserMints(), loadSocietyBalance()]);
+      setStatus("Ready to mint.", "info");
+    }
+  } catch (err) {
+    console.warn("Silent reconnect failed:", err);
   }
 }
 
