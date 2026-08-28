@@ -135,7 +135,9 @@ async function ensureWalletClient() {
 }
 
 async function fetchMetadata() {
-  const res = await fetch(`/api/nft/${state.tokenId}`);
+  // Cache-bust every fetch so phase changes are visible immediately
+  // after a burn (without waiting for the 10s edge cache to expire).
+  const res = await fetch(`/api/nft/${state.tokenId}?_=${Date.now()}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

@@ -110,9 +110,11 @@ export default async function handler(
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          // s-maxage = Vercel edge cache. 60s for NFT metadata (changes
-          // only when phase advances, which is rare per token).
-          "Cache-Control": "public, s-maxage=60, max-age=30",
+          // Phase can change anytime (every burn advances it). Use very
+          // short cache so users see new phase immediately after burn.
+          // Vercel still gets a small edge cache window to dedupe reads
+          // for OpenSea/Rarity crawlers hitting the same token rapidly.
+          "Cache-Control": "public, s-maxage=10, max-age=0, must-revalidate",
           "Access-Control-Allow-Origin": "*",
         },
       },
