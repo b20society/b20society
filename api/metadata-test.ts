@@ -82,7 +82,7 @@ function jsonResponse(data: object): Response {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=10",
+      "Cache-Control": "public, s-maxage=60, max-age=30",
       "Access-Control-Allow-Origin": "*",
       "X-Test-Endpoint": "true",
     },

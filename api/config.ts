@@ -49,7 +49,8 @@ export default async function handler(
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60",
+        // Config is mostly static (env vars). Long edge cache.
+        "Cache-Control": "public, s-maxage=300, max-age=300",
         "Access-Control-Allow-Origin": "*",
       },
     },

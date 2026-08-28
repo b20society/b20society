@@ -84,7 +84,10 @@ function jsonResponse(data: object): Response {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=10",
+      // s-maxage = Vercel edge cache TTL. 60s means even if 1000 users hit
+      // /api/metadata in 60s, only 1 function invocation happens.
+      // max-age = browser cache TTL (shorter so user gets fresh UI data).
+      "Cache-Control": "public, s-maxage=60, max-age=30",
       "Access-Control-Allow-Origin": "*",
     },
   });

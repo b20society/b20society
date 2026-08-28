@@ -111,7 +111,9 @@ export default async function handler(
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=10",
+          // s-maxage = Vercel edge cache. 60s for NFT metadata (changes
+          // only when phase advances, which is rare per token).
+          "Cache-Control": "public, s-maxage=60, max-age=30",
           "Access-Control-Allow-Origin": "*",
         },
       },

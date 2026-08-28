@@ -2,7 +2,7 @@
 // No build step, no framework. Vanilla JS that just calls /api/*
 // Add ?test=1 to URL to use test endpoints (mock data, no real contracts needed).
 
-const REFRESH_MS = 30_000; // refresh every 30 seconds
+const REFRESH_MS = 60_000; // refresh every 60 seconds (was 30s, too aggressive)
 
 const SAMPLE_NFTS = [1, 42, 100, 256, 500, 777, 999];
 
@@ -31,7 +31,9 @@ const state = {
 };
 
 async function fetchJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
+  // Respect server Cache-Control. Default browser caching is fine for our
+  // /api/* endpoints which all return proper Cache-Control headers.
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} from ${url}`);
   }
@@ -292,18 +294,33 @@ function renderContracts() {
 
 // --- Data fetching ---
 
+// Track if we've already loaded sample NFTs (they don't change often).
+let sampleNftsLoaded = false;
+
 async function refreshAll() {
   try {
-    const [health, token, ...nfts] = await Promise.all([
+    // Always refresh health + token metadata (marketcap changes)
+    const [health, token] = await Promise.all([
       fetchJson(API.health),
       fetchJson(API.token),
-      ...SAMPLE_NFTS.map((id) => fetchJson(API.nft(id)).catch(() => null)),
     ]);
     state.env = health.env;
     state.token = token;
-    SAMPLE_NFTS.forEach((id, i) => {
-      state.nfts[id] = nfts[i];
-    });
+
+    // Sample NFT data only fetched on first load (or when explicitly
+    // refreshed via window.refreshSampleNfts()). With 0 NFTs minted,
+    // these all 404 and are pure waste. Once we know the total supply
+    // is > 0, we still only fetch them on first load to keep API usage low.
+    if (!sampleNftsLoaded) {
+      const nfts = await Promise.all(
+        SAMPLE_NFTS.map((id) => fetchJson(API.nft(id)).catch(() => null)),
+      );
+      SAMPLE_NFTS.forEach((id, i) => {
+        state.nfts[id] = nfts[i];
+      });
+      sampleNftsLoaded = true;
+    }
+
     state.lastUpdate = Date.now();
     renderAll();
   } catch (err) {

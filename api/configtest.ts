@@ -49,7 +49,7 @@ export default async function handler(
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "public, s-maxage=300, max-age=300",
         "Access-Control-Allow-Origin": "*",
         "X-Test-Endpoint": "true",
       },
