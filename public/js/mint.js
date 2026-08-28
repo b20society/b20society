@@ -85,10 +85,14 @@ function formatSoc(wei) {
   return n.toFixed(4);
 }
 
+// ---------- Test mode toggle ----------
+// Add ?test=1 to URL to use test endpoints (mock data, no real contracts needed).
+const TEST = new URLSearchParams(window.location.search).get("test") === "1";
+
 // ---------- Config + clients ----------
 
 async function loadConfig() {
-  const res = await fetch("/api/config");
+  const res = await fetch(TEST ? "/api/configtest" : "/api/config");
   if (!res.ok) throw new Error("Failed to load config");
   return res.json();
 }

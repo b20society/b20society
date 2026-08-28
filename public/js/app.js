@@ -1,10 +1,12 @@
 // B20 Society frontend — fetches live metadata from API
 // No build step, no framework. Vanilla JS that just calls /api/*
+// Add ?test=1 to URL to use test endpoints (mock data, no real contracts needed).
 
+const TEST = new URLSearchParams(window.location.search).get("test") === "1";
 const API = {
-  health: "/api/health",
-  token: "/api/metadata",
-  nft: (id) => `/api/nft/${id}`,
+  health: TEST ? "/api/healthtest" : "/api/health",
+  token: TEST ? "/api/metadata-test" : "/api/metadata",
+  nft: (id) => TEST ? `/api/nfttest/${id}` : `/api/nft/${id}`,
 };
 
 const REFRESH_MS = 30_000; // refresh every 30 seconds

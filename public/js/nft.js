@@ -108,10 +108,14 @@ function parseTokenId() {
   return id;
 }
 
+// ---------- Test mode toggle ----------
+// Add ?test=1 to URL to use test endpoints (mock data, no real contracts needed).
+const TEST = new URLSearchParams(window.location.search).get("test") === "1";
+
 // ---------- Data loaders ----------
 
 async function loadConfig() {
-  const res = await fetch("/api/config");
+  const res = await fetch(TEST ? "/api/configtest" : "/api/config");
   if (!res.ok) throw new Error("Failed to load config");
   return res.json();
 }
@@ -134,7 +138,9 @@ async function ensureWalletClient() {
 }
 
 async function fetchMetadata() {
-  const res = await fetch(`/api/nft/${state.tokenId}`);
+  const res = await fetch(
+    TEST ? `/api/nfttest/${state.tokenId}` : `/api/nft/${state.tokenId}`,
+  );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
