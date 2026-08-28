@@ -48,6 +48,48 @@
         <a href="/mint" class="btn btn-primary">Mint a new NFT →</a>
       </div>
 
+      <!-- Unminted state (with phase 1 placeholder preview) -->
+      <div id="unminted-state" class="nft-detail" style="display: none;">
+        <a class="back-link" href="/">← Back to Home</a>
+        <div class="nft-detail-grid">
+          <div class="nft-detail-image-wrap">
+            <img id="unminted-image" class="nft-detail-image" src="/images/Soc1.jpg" alt="Phase 1 placeholder (not yet minted)">
+            <div class="nft-phase-badge" style="background: var(--text-faint);">Not Minted</div>
+          </div>
+          <div class="nft-detail-info">
+            <h1 class="nft-detail-title">B20 Society #<span id="unminted-token-id">—</span></h1>
+            <p class="nft-detail-desc" style="color: var(--text-dim);">
+              This token hasn't been minted yet. Here's a preview of what Phase 1 will look like.
+              Mint one on the <a href="/mint" style="color: var(--accent);">mint page</a> to claim it.
+            </p>
+
+            <ul class="nft-meta-list">
+              <li>
+                <span class="label">Status</span>
+                <span class="value" style="color: var(--text-faint);">Not Minted</span>
+              </li>
+              <li>
+                <span class="label">Preview</span>
+                <span class="value">Phase 1 (placeholder)</span>
+              </li>
+              <li>
+                <span class="label">Max Supply</span>
+                <span class="value">1,000</span>
+              </li>
+              <li>
+                <span class="label">Mint Price</span>
+                <span class="value">0.001 ETH</span>
+              </li>
+            </ul>
+
+            <div class="nft-action-block">
+              <a href="/mint" class="btn btn-primary btn-full">Mint this NFT →</a>
+              <p class="mint-status">Phase 1 preview shown. Mint to activate on-chain state.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Invalid tokenId state -->
       <div id="invalid-state" class="state-message" style="display: none;">
         <h2 class="state-title">Invalid Token ID</h2>

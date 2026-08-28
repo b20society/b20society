@@ -178,17 +178,25 @@ function renderNfts() {
 
   SAMPLE_NFTS.forEach((id) => {
     const data = state.nfts[id];
-    const phase = data ? attr(data, "Phase") : null;
+    const isMinted = !!data;
+    const phase = isMinted ? attr(data, "Phase") : 1;
     const card = document.createElement("div");
-    card.className = "nft-card";
+    card.className = `nft-card ${isMinted ? "" : "nft-card-placeholder"}`;
     card.onclick = () => {
-      window.open(`https://b20society.com/api/nft/${id}`, "_blank");
+      window.location.href = `/nft?id=${id}`;
     };
+    // Use API image if minted, else fall back to phase 1 static image as placeholder
+    const imgSrc = isMinted
+      ? data.image
+      : `/images/Soc1.jpg`;
     card.innerHTML = `
-      <img src="${data?.image || (phase === 1 ? '/images/Soc1.jpg' : `/images/nft/phase-${phase || 1}.gif`)}" alt="NFT #${id}" loading="lazy">
+      <div class="nft-card-image-wrap">
+        <img src="${imgSrc}" alt="NFT #${id} (${isMinted ? "Phase " + phase : "Phase 1 placeholder, not minted"})" loading="lazy">
+        ${!isMinted ? `<div class="nft-card-badge">Not Minted</div>` : ""}
+      </div>
       <div class="nft-card-info">
         <span class="id">#${id}</span>
-        <span class="phase">P${phase || "—"}</span>
+        <span class="phase">P${phase}${!isMinted ? " (placeholder)" : ""}</span>
       </div>
     `;
     grid.appendChild(card);

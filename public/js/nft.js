@@ -451,9 +451,9 @@ async function init() {
   }
 
   if (!metadata) {
-    showState("error-state");
-    setText("error-title", "Token Not Minted");
-    setText("error-text", `B20 Society #${tokenId} doesn't exist yet. It hasn't been minted.`);
+    // NFT not minted yet — show phase 1 placeholder preview
+    showState("unminted-state");
+    setText("unminted-token-id", String(tokenId));
     return;
   }
 
