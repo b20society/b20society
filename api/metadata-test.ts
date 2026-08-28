@@ -33,16 +33,40 @@ export default async function handler(
         description: LIVE_DESCRIPTION,
         image: tierImageUrl(result.tier, PUBLIC_DOMAIN),
         external_url: PUBLIC_DOMAIN,
+        attributes: [
+          { trait_type: "Tier", value: result.tier },
+          { trait_type: "Market Cap (USD)", value: Math.round(result.marketcapUsd * 100) / 100 },
+          { trait_type: "NVDA Price (USD)", value: Math.round(result.nvdaPriceUsd * 100) / 100 },
+          { trait_type: "Total Supply", value: "1000000000000000000000000000" },
+          { trait_type: "Price Feed Stale", value: result.priceStale ? "Yes" : "No" },
+        ],
       });
     }
 
-    // Stub mode: tier 0, marketcap 0
+    // Stub mode: tier 0, marketcap 0, but show real NVDA price
+    let nvdaPriceUsd = 0;
+    let nvdaStale = false;
+    try {
+      const price = await getNvdaPriceUsd();
+      nvdaPriceUsd = price.priceUsd;
+      nvdaStale = price.isStale;
+    } catch (err) {
+      console.warn("Failed to read NVDA price:", err);
+    }
     return jsonResponse({
       name: "B20 Society",
       symbol: "SOCIETY",
       description: STUB_DESCRIPTION,
       image: STUB_IMAGE,
       external_url: PUBLIC_DOMAIN,
+      attributes: [
+        { trait_type: "Tier", value: 0 },
+        { trait_type: "Market Cap (USD)", value: 0 },
+        { trait_type: "NVDA Price (USD)", value: Math.round(nvdaPriceUsd * 100) / 100 },
+        { trait_type: "Total Supply", value: "1000000000000000000000000000" },
+        { trait_type: "Price Feed Stale", value: nvdaStale ? "Yes" : "No" },
+        { trait_type: "Stub Mode", value: "V4_POOL_ID not set in Vercel" },
+      ],
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
