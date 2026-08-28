@@ -6,6 +6,7 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/mint", "destination": "/mint.html" },
-    { "source": "/nft/:id", "destination": "/nft.html" }
+    { "source": "/nft/:id", "destination": "/nft.html" },
+    { "source": "/nft/:id/", "destination": "/nft.html" }
   ]
 }
