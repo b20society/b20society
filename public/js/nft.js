@@ -111,6 +111,12 @@ function parseTokenId() {
 // ---------- Test mode toggle ----------
 // Add ?test=1 to URL to use test endpoints (mock data, no real contracts needed).
 const TEST = new URLSearchParams(window.location.search).get("test") === "1";
+// In test mode, default: NFT is NOT minted (returns 404).
+// Opt-in: add &minted=ID to URL to see the NFT as minted.
+const TEST_MINTED = (new URLSearchParams(window.location.search).get("minted") ?? "")
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter((n) => !Number.isNaN(n) && n >= 1);
 
 // ---------- Data loaders ----------
 
@@ -138,9 +144,14 @@ async function ensureWalletClient() {
 }
 
 async function fetchMetadata() {
+  // In test mode, default = NOT minted (fresh launch).
+  // Opt-in: ?minted=ID in URL to see this token as minted.
+  const mintedParam = TEST_MINTED.length > 0
+    ? `?minted=${TEST_MINTED.join(",")}`
+    : "";
   const res = await fetch(
     TEST
-      ? `/api/nfttest/${state.tokenId}?minted=${state.tokenId}`
+      ? `/api/nfttest/${state.tokenId}${mintedParam}`
       : `/api/nft/${state.tokenId}`,
   );
   if (res.status === 404) return null;

@@ -7,14 +7,19 @@ const REFRESH_MS = 30_000; // refresh every 30 seconds
 const SAMPLE_NFTS = [1, 42, 100, 256, 500, 777, 999];
 
 const TEST = new URLSearchParams(window.location.search).get("test") === "1";
+// In test mode, only IDs listed in TEST_MINTED count as "minted".
+// Default: empty list = TRUE fresh launch (0 NFTs minted, $0 mcap).
+// Opt-in: add &minted=1,42,100 to URL to simulate minted state.
+const TEST_MINTED = (new URLSearchParams(window.location.search).get("minted") ?? "")
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter((n) => !Number.isNaN(n) && n >= 1);
 const API = {
   health: TEST ? "/api/healthtest" : "/api/health",
   token: TEST ? "/api/metadata-test" : "/api/metadata",
-  // In test mode, the nfttest endpoint requires ?minted=... to return 200.
-  // Pass the full sample list so the home page shows NFTs as "minted".
   nft: (id) =>
     TEST
-      ? `/api/nfttest/${id}?minted=${SAMPLE_NFTS.join(",")}`
+      ? `/api/nfttest/${id}?minted=${TEST_MINTED.join(",")}`
       : `/api/nft/${id}`,
 };
 
@@ -151,6 +156,18 @@ function renderNfts() {
   if (!grid) return;
 
   grid.innerHTML = "";
+
+  // Fresh launch: 0 NFTs minted. Show empty state instead of cards.
+  if (TEST && TEST_MINTED.length === 0) {
+    grid.innerHTML = `
+      <div class="nft-empty-state">
+        <p><strong>No NFTs minted yet.</strong></p>
+        <p class="muted">Test mode: 0 / 1000 minted. Add <code>&amp;minted=1,42,100,256,500,777,999</code> to URL to see sample NFTs.</p>
+      </div>
+    `;
+    return;
+  }
+
   SAMPLE_NFTS.forEach((id) => {
     const data = state.nfts[id];
     const phase = data ? attr(data, "Phase") : null;
