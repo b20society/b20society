@@ -18,9 +18,6 @@
   <!-- Top label -->
   <text x="512" y="120" text-anchor="middle" fill="#0000ff" font-family="JetBrains Mono, monospace" font-size="24" letter-spacing="6" font-weight="700">SOCIETY</text>
 
-  <!-- Bottom label -->
-  <text x="512" y="950" text-anchor="middle" fill="#9999aa" font-family="JetBrains Mono, monospace" font-size="18" letter-spacing="2" font-weight="600">AWAITING LAUNCH</text>
-
   <!-- Corner ticks (Base blue) -->
   <g stroke="#0000ff" stroke-width="3" opacity="0.4">
     <line x1="80" y1="80" x2="120" y2="80"/>
