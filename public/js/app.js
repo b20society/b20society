@@ -80,13 +80,21 @@ function renderToken() {
   const stubMode = attr(data, "Stub Mode");
   const priceStale = attr(data, "Price Feed Stale") === "Yes";
 
-  // Image
+  // Image (token section + hero)
   const img = document.getElementById("token-image");
   if (img && data.image) {
     if (img.src !== data.image) {
       img.style.opacity = "0";
       img.onload = () => (img.style.opacity = "1");
       img.src = data.image;
+    }
+  }
+  const heroImg = document.getElementById("hero-token-image");
+  if (heroImg && data.image) {
+    if (heroImg.src !== data.image) {
+      heroImg.style.opacity = "0";
+      heroImg.onload = () => (heroImg.style.opacity = "1");
+      heroImg.src = data.image;
     }
   }
 
@@ -233,15 +241,35 @@ function renderContracts() {
     addr: e.V4_POOL_ID,
     href: null,
   });
+  items.push({
+    label: "V4 Pool (PoolManager)",
+    addr: "0x498581fF718922c3f8e6a244956aF099B2652b2b",
+    href: "https://basescan.org/address/0x498581fF718922c3f8e6a244956aF099B2652b2b",
+  });
+  items.push({
+    label: "RWA Stock Factory",
+    addr: "0xFf70918eF17A2D74d683A8297813B177BaFaD1f4",
+    href: "https://basescan.org/address/0xFf70918eF17A2D74d683A8297813B177BaFaD1f4",
+  });
+  items.push({
+    label: "NVDA Paired Token",
+    addr: "0xb20000000000000000000078Ee7Ce2Fe4908108C",
+    href: "https://basescan.org/address/0xb20000000000000000000078Ee7Ce2Fe4908108C",
+  });
+  items.push({
+    label: "Launch TX",
+    addr: "0xfa88dab61bf5ef3f572dc3d9d6c5941b012af184e39e4a05a34236df7c838910",
+    href: "https://basescan.org/tx/0xfa88dab61bf5ef3f572dc3d9d6c5941b012af184e39e4a05a34236df7c838910",
+  });
 
   wrap.innerHTML = items
     .map(
       (it) => `
-      <div>
+      <div class="contract-row">
         <span class="label">${it.label}</span>
         ${
           it.addr && it.addr !== "<not set>"
-            ? `<a class="address" href="${it.href || "#"}" target="_blank">${it.addr}</a>`
+            ? `<a class="address" href="${it.href || "#"}" target="_blank" rel="noopener">${it.addr}<span class="ext">↗</span></a>`
             : `<span class="address" style="color:var(--text-faint)">Pending deploy</span>`
         }
       </div>
