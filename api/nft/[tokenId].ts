@@ -12,6 +12,7 @@ import {
 import { base } from "viem/chains";
 import { NFT_MAX_SUPPLY } from "../../lib/constants";
 import { phaseImageUrl } from "../../lib/uuid-map";
+import { buildNftMetadata } from "../../lib/nft-metadata";
 
 export const config = {
   runtime: "edge",
@@ -71,23 +72,23 @@ export default async function handler(
 
     let phase = 1;
     try {
-      const exists = (await client.readContract({
+      const exists = await client.readContract({
         address: nftContract,
         abi: NFT_ABI,
         functionName: "exists",
         args: [tokenId],
-      })) as boolean;
+      });
 
       if (!exists) {
         return jsonError(`Token #${tokenIdStr} not minted yet`, 404);
       }
 
-      phase = (await client.readContract({
+      phase = await client.readContract({
         address: nftContract,
         abi: NFT_ABI,
         functionName: "phaseOf",
         args: [tokenId],
-      })) as number;
+      });
       if (phase < 1 || phase > 10) phase = 1;
     } catch (err) {
       console.warn(`Failed to read phase for #${tokenIdStr}:`, err);
@@ -96,14 +97,12 @@ export default async function handler(
 
     return new Response(
       JSON.stringify(
-        {
-          name: `B20 Society #${tokenIdStr}`,
-          description:
-            "B20 Society NFT — self-evolving through 10 phases via $SOCIETY burns.",
-          // UUID-based URL so users can't guess the next phase image.
+        buildNftMetadata({
+          tokenId: tokenIdStr,
+          phase,
           image: phaseImageUrl(phase, PUBLIC_DOMAIN),
-          external_url: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
-        },
+          externalUrl: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
+        }),
         null,
         2,
       ),

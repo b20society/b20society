@@ -13,6 +13,7 @@ import {
 import { base } from "viem/chains";
 import { NFT_MAX_SUPPLY } from "../../lib/constants";
 import { phaseImageUrl } from "../../lib/uuid-map";
+import { buildNftMetadata } from "../../lib/nft-metadata";
 
 export const config = {
   runtime: "edge",
@@ -96,13 +97,12 @@ export default async function handler(
 
     return new Response(
       JSON.stringify(
-        {
-          name: `B20 Society #${tokenIdStr}`,
-          description:
-            "B20 Society NFT — self-evolving through 10 phases via $SOCIETY burns.",
+        buildNftMetadata({
+          tokenId: tokenIdStr,
+          phase,
           image: phaseImageUrl(phase, PUBLIC_DOMAIN),
-          external_url: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
-        },
+          externalUrl: `${PUBLIC_DOMAIN}/nft?id=${tokenIdStr}`,
+        }),
         null,
         2,
       ),
