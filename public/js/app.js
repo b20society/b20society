@@ -284,3 +284,4 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshAll();
   setInterval(refreshAll, REFRESH_MS);
 });
+// Vercel redeploy trigger Fri Aug 28 07:53:15 UTC 2026
