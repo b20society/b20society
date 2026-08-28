@@ -41,6 +41,7 @@ function fmtNumber(n, decimals = 0) {
 
 function fmtUsd(n) {
   if (n == null || isNaN(n)) return "—";
+  if (n === 0) return "$0";
   if (n < 1) return `$${n.toFixed(4)}`;
   if (n < 1000) return `$${n.toFixed(2)}`;
   if (n < 1_000_000) return `$${(n / 1000).toFixed(1)}K`;
