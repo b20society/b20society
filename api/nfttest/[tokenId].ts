@@ -31,6 +31,7 @@ const client = createPublicClient({
     http(process.env.BASE_RPC ?? "https://base.drpc.org"),
     http("https://mainnet.base.org"),
   ]),
+  batch: { multicall: true },
 });
 
 export default async function handler(

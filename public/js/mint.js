@@ -101,6 +101,7 @@ async function makePublicClient() {
   return createPublicClient({
     chain: CHAIN,
     transport: http("https://base.drpc.org"),
+    batch: { multicall: true },
   });
 }
 
@@ -184,17 +185,17 @@ async function loadUserMints() {
     state.userMints = balance;
     setText("user-mints", balance.toString());
 
-    // Fetch token IDs
-    const ids = [];
-    for (let i = 0n; i < balance; i++) {
-      const id = await state.publicClient.readContract({
-        address: state.nftAddress,
-        abi: NFT_ABI,
-        functionName: "tokenOfOwnerByIndex",
-        args: [state.account, i],
-      });
-      ids.push(id);
-    }
+    // Fetch token IDs in parallel (viem multicall batches into 1 request)
+    const ids = await Promise.all(
+      Array.from({ length: Number(balance) }, (_, i) =>
+        state.publicClient.readContract({
+          address: state.nftAddress,
+          abi: NFT_ABI,
+          functionName: "tokenOfOwnerByIndex",
+          args: [state.account, BigInt(i)],
+        }),
+      ),
+    );
     state.userTokenIds = ids;
 
     // Fetch phases + burn costs in parallel

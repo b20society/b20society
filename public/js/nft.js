@@ -130,6 +130,7 @@ function makePublicClient() {
   return createPublicClient({
     chain: CHAIN,
     transport: http("https://base.drpc.org"),
+    batch: { multicall: true },
   });
 }
 

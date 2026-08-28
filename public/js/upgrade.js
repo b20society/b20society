@@ -64,6 +64,24 @@ const state = {
   pendingBurnTokenId: null,
 };
 
+// In-memory cache for read-only data. Refreshes the rendered UI without
+// hitting the RPC every 15s. Keyed by account so multi-wallet works.
+const readCache = {
+  // map: account(lowercase) -> { ts, totalSupply, maxSupply, societyBalance, allowance, userMints, userTokenIds, nftPhases, nftBurnCosts, nftOwners }
+};
+const READ_CACHE_TTL_MS = 10_000;
+
+function readCacheGet(account) {
+  const entry = readCache[account.toLowerCase()];
+  if (!entry) return null;
+  if (Date.now() - entry.ts > READ_CACHE_TTL_MS) return null;
+  return entry;
+}
+
+function readCacheSet(account, data) {
+  readCache[account.toLowerCase()] = { ts: Date.now(), ...data };
+}
+
 // ---------- DOM helpers ----------
 
 const $ = (id) => document.getElementById(id);
@@ -105,6 +123,7 @@ function makePublicClient() {
   return createPublicClient({
     chain: CHAIN,
     transport: http("https://base.drpc.org"),
+    batch: { multicall: true },
   });
 }
 
@@ -182,6 +201,8 @@ async function loadAllowance() {
 async function loadUserNfts() {
   if (!state.nftAddress || !state.account) return;
   try {
+    // Fetch balance, all tokenOfOwnerByIndex calls, AND all phase/burn/owner
+    // reads in a single multicall batch (viem's batch:true will merge them).
     const balance = await state.publicClient.readContract({
       address: state.nftAddress,
       abi: NFT_ABI,
@@ -191,50 +212,52 @@ async function loadUserNfts() {
     state.userMints = balance;
     setText("user-mints", balance.toString());
 
-    // Fetch token IDs
-    const ids = [];
-    for (let i = 0n; i < balance; i++) {
-      const id = await state.publicClient.readContract({
+    // Build all read promises in parallel (not sequential). viem will
+    // batch them into 1-2 multicall requests instead of N.
+    const idReads = Array.from({ length: Number(balance) }, (_, i) =>
+      state.publicClient.readContract({
         address: state.nftAddress,
         abi: NFT_ABI,
         functionName: "tokenOfOwnerByIndex",
-        args: [state.account, i],
-      });
-      ids.push(id);
-    }
+        args: [state.account, BigInt(i)],
+      }),
+    );
+    const ids = await Promise.all(idReads);
     state.userTokenIds = ids;
 
-    // Fetch phases + burn costs + owners in parallel
-    const phases = await Promise.all(
-      ids.map((id) =>
-        state.publicClient.readContract({
-          address: state.nftAddress,
-          abi: NFT_ABI,
-          functionName: "phaseOf",
-          args: [id],
-        }),
+    // Phases + costs + owners in a single Promise.all
+    const [phases, costs, owners] = await Promise.all([
+      Promise.all(
+        ids.map((id) =>
+          state.publicClient.readContract({
+            address: state.nftAddress,
+            abi: NFT_ABI,
+            functionName: "phaseOf",
+            args: [id],
+          }),
+        ),
       ),
-    );
-    const costs = await Promise.all(
-      ids.map((id) =>
-        state.publicClient.readContract({
-          address: state.nftAddress,
-          abi: NFT_ABI,
-          functionName: "burnCostFor",
-          args: [id],
-        }),
+      Promise.all(
+        ids.map((id) =>
+          state.publicClient.readContract({
+            address: state.nftAddress,
+            abi: NFT_ABI,
+            functionName: "burnCostFor",
+            args: [id],
+          }),
+        ),
       ),
-    );
-    const owners = await Promise.all(
-      ids.map((id) =>
-        state.publicClient.readContract({
-          address: state.nftAddress,
-          abi: NFT_ABI,
-          functionName: "ownerOf",
-          args: [id],
-        }),
+      Promise.all(
+        ids.map((id) =>
+          state.publicClient.readContract({
+            address: state.nftAddress,
+            abi: NFT_ABI,
+            functionName: "ownerOf",
+            args: [id],
+          }),
+        ),
       ),
-    );
+    ]);
     ids.forEach((id, i) => {
       state.nftPhases[id.toString()] = phases[i];
       state.nftBurnCosts[id.toString()] = costs[i];
