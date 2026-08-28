@@ -156,17 +156,23 @@ async function loadSocietyBalance() {
 async function loadAllowance() {
   if (!state.societyAddress || !state.account || !state.nftAddress) return;
   try {
-    state.allowance = (await state.publicClient.readContract({
+    state.allowance = await state.publicClient.readContract({
       address: state.societyAddress,
       abi: ERC20_ABI,
       functionName: "allowance",
       args: [state.account, state.nftAddress],
-    })) as bigint;
+    });
+    const el = $("allowance-value");
     if (state.allowance === 0n) {
-      setText("allowance-value", "0 (need approve)");
-      setText("allowance-value").className = "meta-value warn";
+      if (el) {
+        el.textContent = "0 (need approve)";
+        el.className = "meta-value warn";
+      }
     } else {
-      setText("allowance-value", `${formatSoc(state.allowance)} $${state.societySymbol}`);
+      if (el) {
+        el.textContent = `${formatSoc(state.allowance)} $${state.societySymbol}`;
+        el.className = "meta-value";
+      }
     }
   } catch (err) {
     console.warn("Failed to read allowance:", err);
@@ -176,24 +182,24 @@ async function loadAllowance() {
 async function loadUserNfts() {
   if (!state.nftAddress || !state.account) return;
   try {
-    const balance = (await state.publicClient.readContract({
+    const balance = await state.publicClient.readContract({
       address: state.nftAddress,
       abi: NFT_ABI,
       functionName: "balanceOf",
       args: [state.account],
-    })) as bigint;
+    });
     state.userMints = balance;
     setText("user-mints", balance.toString());
 
     // Fetch token IDs
-    const ids: bigint[] = [];
+    const ids = [];
     for (let i = 0n; i < balance; i++) {
-      const id = (await state.publicClient.readContract({
+      const id = await state.publicClient.readContract({
         address: state.nftAddress,
         abi: NFT_ABI,
         functionName: "tokenOfOwnerByIndex",
         args: [state.account, i],
-      })) as bigint;
+      });
       ids.push(id);
     }
     state.userTokenIds = ids;
@@ -406,12 +412,12 @@ async function burnAndAdvance(tokenId, costWei) {
 
   try {
     // 1. Check allowance, request approve if needed
-    const allowance = (await state.publicClient.readContract({
+    const allowance = await state.publicClient.readContract({
       address: state.societyAddress,
       abi: ERC20_ABI,
       functionName: "allowance",
       args: [state.account, state.nftAddress],
-    })) as bigint;
+    });
 
     if (allowance < costWei) {
       setStatus(`Approving $${state.societySymbol} spend (one-time)...`, "info");
@@ -501,11 +507,11 @@ async function init() {
       console.warn("SOCIETY token address not set — burn flow will be disabled.");
     } else {
       try {
-        const sym = (await state.publicClient.readContract({
+        const sym = await state.publicClient.readContract({
           address: state.societyAddress,
           abi: ERC20_ABI,
           functionName: "symbol",
-        })) as string;
+        });
         state.societySymbol = sym;
       } catch (err) {
         console.warn("Could not read $SOCIETY symbol:", err);
