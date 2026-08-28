@@ -24,10 +24,10 @@ const CHAINLINK_ABI = parseAbi([
   "function decimals() view returns (uint8)",
 ]);
 
-// o1 API: 5s timeout. Vercel Edge has 25s budget total; o1 sometimes hangs on
-// fresh blocks while waiting for their indexer. 5s gives enough time for cache
+// o1 API: 8s timeout. Vercel Edge has 25s budget total; o1 sometimes hangs on
+// fresh blocks while waiting for their indexer. 8s gives enough time for cache
 // hits and a couple of fresh fetches, but never starves the function.
-const O1_TIMEOUT_MS = 5_000;
+const O1_TIMEOUT_MS = 8_000;
 
 type MarketcapResult = {
   marketcapUsd: number;
@@ -52,14 +52,14 @@ async function fetchO1PoolState(
   if (!apiKey) return null;
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    const res = await fetch(
+    const fetchPromise = fetch(
       `https://api.launch.o1.exchange/v1/tokens/8453/${tokenAddress}`,
-      { headers: { "x-api-key": apiKey }, signal: controller.signal },
+      { headers: { "x-api-key": apiKey } },
     );
-    clearTimeout(timer);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`o1 API timeout after ${timeoutMs}ms`)), timeoutMs),
+    );
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (!res.ok) return null;
     const json = (await res.json()) as {
