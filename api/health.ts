@@ -1,5 +1,6 @@
 // Health check endpoint
 // Returns 200 OK with the current configuration status
+// Note: env var values are FULL (not masked) so deploy/debug tools see real values.
 
 export const config = {
   runtime: "edge",
@@ -10,9 +11,9 @@ export default async function handler(): Promise<Response> {
     status: "ok",
     timestamp: Date.now(),
     env: {
-      V4_POOL_ID: mask(process.env.V4_POOL_ID),
-      NFT_CONTRACT_ADDRESS: mask(process.env.NFT_CONTRACT_ADDRESS),
-      SOCIETY_ADDRESS: mask(process.env.SOCIETY_ADDRESS),
+      V4_POOL_ID: process.env.V4_POOL_ID ?? null,
+      NFT_CONTRACT_ADDRESS: process.env.NFT_CONTRACT_ADDRESS ?? null,
+      SOCIETY_ADDRESS: process.env.SOCIETY_ADDRESS ?? null,
     },
   };
 
@@ -20,10 +21,4 @@ export default async function handler(): Promise<Response> {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function mask(value: string | undefined): string {
-  if (!value) return "<not set>";
-  if (value.length < 12) return "<set>";
-  return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
