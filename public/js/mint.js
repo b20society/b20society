@@ -281,7 +281,27 @@ async function renderUserNfts() {
   });
 }
 
-// ---------- Wallet connect + mint ----------
+// ---------- Action button (connect / mint) ----------
+
+function updateActionButton() {
+  const btn = $("action-btn");
+  if (!btn) return;
+  if (state.account) {
+    btn.textContent = "Mint NFT (0.001 ETH)";
+    btn.disabled = false;
+  } else {
+    btn.textContent = "Connect Wallet";
+    btn.disabled = false;
+  }
+}
+
+async function handleAction() {
+  if (!state.account) {
+    await connectWallet();
+  } else {
+    await mint();
+  }
+}
 
 async function connectWallet() {
   try {
@@ -299,11 +319,9 @@ async function connectWallet() {
     }
 
     // Update UI
-    $("connect-btn").textContent = "Connected";
-    $("connect-btn").disabled = true;
     $("wallet-info").style.display = "block";
     setText("wallet-address", shortAddress(account));
-    $("mint-btn").disabled = false;
+    updateActionButton();
     setStatus("Wallet connected. Ready to mint.", "info");
 
     // Load user-specific data
@@ -319,7 +337,7 @@ async function mint() {
     setStatus("Connect wallet first.", "error");
     return;
   }
-  const btn = $("mint-btn");
+  const btn = $("action-btn");
   btn.disabled = true;
   setStatus("Sending transaction...", "info");
 
@@ -426,8 +444,7 @@ async function init() {
 
     if (!state.nftAddress) {
       setStatus("NFT contract not deployed yet. Set NFT_CONTRACT_ADDRESS in Vercel.", "error");
-      $("mint-btn").disabled = true;
-      $("connect-btn").disabled = true;
+      $("action-btn").disabled = true;
       return;
     }
 
@@ -448,8 +465,9 @@ async function init() {
 
     await loadContractStats();
 
-    $("connect-btn").addEventListener("click", connectWallet);
-    $("mint-btn").addEventListener("click", mint);
+    // Single button: Connect Wallet OR Mint (depending on connection state)
+    $("action-btn").addEventListener("click", handleAction);
+    updateActionButton();
 
     // Auto-reload stats every 30s
     setInterval(loadContractStats, 30_000);

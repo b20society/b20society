@@ -41,8 +41,9 @@
       <h1>Mint B20 Society NFT</h1>
       <p class="symbol">1000 supply · 0.001 ETH · max 5 per wallet</p>
       <p class="tagline">
-        1 design × 10 phases. All NFTs mint at phase 1.
-        Advance phase by burning $SOCIETY: 20K → 30K → ... → 100K per upgrade.
+        Designed with 10 phases (evolving animation).
+        Holders burn $SOCIETY to advance phase: 20K → 30K → ... → 100K per upgrade.
+        Max 540K per NFT for full evolution.
       </p>
     </div>
   </section>
@@ -80,8 +81,6 @@
         <div class="mint-card mint-card-action">
           <h2 class="mint-card-title">Mint</h2>
 
-          <button id="connect-btn" class="btn btn-primary btn-full">Connect Wallet</button>
-
           <div id="wallet-info" style="display: none;">
             <p class="wallet-address" id="wallet-address"></p>
             <div class="wallet-meta">
@@ -96,9 +95,7 @@
             </div>
           </div>
 
-          <button id="mint-btn" class="btn btn-primary btn-full" disabled>
-            Mint NFT (0.001 ETH)
-          </button>
+          <button id="action-btn" class="btn btn-primary btn-full">Connect Wallet</button>
 
           <p id="mint-status" class="mint-status"></p>
 
