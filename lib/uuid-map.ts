@@ -3,13 +3,14 @@
 // Goal: image URLs are not predictable from the tier/phase number, so users
 // can't preview the next tier by guessing /images/Soc2.jpg etc.
 //
-// The actual file content stays the same (Soc1.jpg, Soc2.jpg, ...), but the
-// URL exposed via the metadata API uses a random UUID. The /api/img/[uuid]
-// endpoint maps the UUID back to the file.
+// The actual image files are stored under /public/images/uuid/{uuid}.jpg
+// (for tiers) and /public/images/uuid-phase/{uuid}.{jpg,gif} (for phases).
+// Vercel serves these as static files. The metadata API exposes only
+// the UUID-based URL — not the original Soc{N}.jpg filename.
 //
 // Note: these UUIDs are not security tokens — they just hide the pattern.
 // A determined user could brute-force or scrape links. The point is that
-// casual URL-guessing doesn't reveal upcoming tiers.
+// casual URL-guessing doesn't reveal upcoming tiers/phases.
 
 const TIER_UUIDS: Record<number, string> = {
   1: "f7a3b2c1-4d5e-6f78-90ab-cdef12345678",
@@ -81,11 +82,11 @@ const TIER_UUIDS: Record<number, string> = {
   67: "98fb0c1d-d8d8-e9e9-fafa-0b0c1d2e3f40",
   68: "a90c1d2e-e9e9-fafa-0b0b-1c1d2e3f4051",
   69: "ba1d2e3f-fafa-0b0b-1c1c-2d2e3f405162",
-  70: "cb2e3f40-0b0b-1c1c-2d2d-3e3f40516273",
-  71: "dc3f4051-1c1c-2d2d-3e3e-404f51526384",
+  70: "1a2b3c70-1234-5678-90ab-cdef701a2b3c",
+  71: "1a2b3c71-1234-5678-90ab-cdef711a2b3c",
   72: "ed405162-2d2d-3e3e-4f4f-505162637485",
   73: "fe516273-3e3e-4f4f-5050-616263748596",
-  74: "0f627384-4f4f-5050-6161-7273748586a7",
+  74: "1a2b3c74-1234-5678-90ab-cdef741a2b3c",
   75: "10738495-5050-6161-7272-83848596a7b8",
   76: "218495a6-6161-7272-8383-949596a7b8c9",
   77: "3295a6b7-7272-8383-9494-a595a6b7c8d9",
@@ -138,4 +139,17 @@ export function uuidToPhase(uuid: string): number | null {
     if (u === uuid) return Number(phase);
   }
   return null;
+}
+
+/** Build the static image URL for a given tier (1..91). */
+export function tierImageUrl(tier: number, baseUrl: string): string {
+  return `${baseUrl}/images/uuid/${tierToUuid(tier)}.jpg`;
+}
+
+/** Build the static image URL for a given phase (1..10). */
+export function phaseImageUrl(phase: number, baseUrl: string): string {
+  const uuid = phaseToUuid(phase);
+  // Phase 1 is static JPG, phases 2-10 are animated GIFs
+  const ext = phase === 1 ? "jpg" : "gif";
+  return `${baseUrl}/images/uuid-phase/${uuid}.${ext}`;
 }

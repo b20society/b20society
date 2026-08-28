@@ -5,7 +5,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { computeMarketcap, getNvdaPriceUsd } from "../lib/marketcap";
-import { tierToUuid } from "../lib/uuid-map";
+import { tierImageUrl } from "../lib/uuid-map";
 
 export const config = {
   runtime: "edge",
@@ -30,8 +30,7 @@ export default async function handler(
         name: "B20 Society",
         symbol: "SOCIETY",
         description: LIVE_DESCRIPTION,
-        // Use UUID-based URL so the next tier can't be guessed.
-        image: `${PUBLIC_DOMAIN}/api/img/${tierToUuid(result.tier)}`,
+        image: tierImageUrl(result.tier, PUBLIC_DOMAIN),
         external_url: PUBLIC_DOMAIN,
         attributes: [
           { trait_type: "Tier", value: result.tier },
