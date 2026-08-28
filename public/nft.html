@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B20 Society NFT</title>
+  <meta name="description" content="B20 Society NFT — self-evolving through 10 phases via $SOCIETY burns.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/jpeg" href="/images/Soc91.jpg">
+
+  <meta property="og:type" content="website">
+</head>
+<body>
+
+  <header>
+    <div class="container header-content">
+      <a class="logo" href="/">
+        <img class="logo-image" src="/images/Soc91.jpg" alt="B20 Society">
+        B20 Society
+      </a>
+      <nav class="header-nav">
+        <a href="/#token">Token</a>
+        <a href="/#how">How it works</a>
+        <a href="/#nft">NFT</a>
+        <a href="/mint">Mint</a>
+        <a href="/#contracts">Contracts</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="nft-detail-section">
+    <div class="container">
+
+      <!-- Loading state -->
+      <div id="loading-state" class="state-message">
+        <p class="loading">Loading NFT...</p>
+      </div>
+
+      <!-- Error state -->
+      <div id="error-state" class="state-message" style="display: none;">
+        <h2 class="state-title" id="error-title">Token Not Found</h2>
+        <p class="state-text" id="error-text">This token doesn't exist or hasn't been minted yet.</p>
+        <a href="/mint" class="btn btn-primary">Mint a new NFT →</a>
+      </div>
+
+      <!-- Invalid tokenId state -->
+      <div id="invalid-state" class="state-message" style="display: none;">
+        <h2 class="state-title">Invalid Token ID</h2>
+        <p class="state-text">Token IDs must be between 1 and 1000.</p>
+        <a href="/mint" class="btn btn-primary">Browse mints →</a>
+      </div>
+
+      <!-- NFT loaded state -->
+      <div id="nft-state" class="nft-detail" style="display: none;">
+
+        <a class="back-link" href="/mint">← Back to Mint</a>
+
+        <div class="nft-detail-grid">
+
+          <div class="nft-detail-image-wrap">
+            <img id="nft-image" class="nft-detail-image" alt="" />
+            <div class="nft-phase-badge" id="nft-phase-badge">Phase 1</div>
+          </div>
+
+          <div class="nft-detail-info">
+
+            <h1 class="nft-detail-title" id="nft-title">B20 Society #42</h1>
+            <p class="nft-detail-desc">
+              1 design × 10 phases (animated). Holders burn $SOCIETY to advance phase.
+            </p>
+
+            <ul class="nft-meta-list">
+              <li>
+                <span class="label">Owner</span>
+                <span class="value" id="nft-owner">—</span>
+              </li>
+              <li>
+                <span class="label">Burn Cost (next phase)</span>
+                <span class="value" id="nft-burn-cost">—</span>
+              </li>
+              <li>
+                <span class="label">Mint #</span>
+                <span class="value" id="nft-mint-position">—</span>
+              </li>
+              <li>
+                <span class="label">Max Supply</span>
+                <span class="value">1,000</span>
+              </li>
+            </ul>
+
+            <div class="nft-action-block">
+              <button id="action-btn" class="btn btn-primary btn-full">Connect Wallet</button>
+              <p id="action-status" class="mint-status"></p>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="links">
+        <a href="/api/health" target="_blank">API Health</a>
+        <a href="/api/metadata" target="_blank">Token Metadata</a>
+        <a href="https://github.com/b20society/b20society" target="_blank">GitHub</a>
+      </div>
+      <div>B20 Society on Base. B20 is an experimental token standard by Base.</div>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/nft.js"></script>
+</body>
+</html>
