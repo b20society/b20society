@@ -1,16 +1,23 @@
 // Marketcap computation for B20 Society
-// Reads V4 pool state via o1 API + Chainlink NVDA/USD price, returns USD marketcap + tier
-//
-// Strategy:
-//   1. Try o1 API (most reliable for V4 pool state, with 5s timeout)
-//   2. Fall back to direct V4 PoolManager read via extsload
-//   3. Fall back to stub (tier 0) if all else fails
-//
-// NVDA price is always from Chainlink (independent and fast).
+// Reads V4 pool slot0 + Chainlink NVDA/USD price, returns USD marketcap + tier
 
-import { createPublicClient, http, parseAbi, fallback } from "viem";
+import {
+  createPublicClient,
+  http,
+  parseAbi,
+  fallback,
+  keccak256,
+  encodePacked,
+  getAddress,
+} from "viem";
 import { base } from "viem/chains";
-import { CHAINLINK_NVDA_FEED, TIER_STEP } from "./constants";
+import {
+  CHAINLINK_NVDA_FEED,
+  NVDA_ADDRESS,
+  POOL_MANAGER,
+  TIER_STEP,
+  TOTAL_SUPPLY,
+} from "./constants";
 import { TIER_COUNT } from "./tier-images";
 
 const client = createPublicClient({
@@ -23,207 +30,161 @@ const client = createPublicClient({
   batch: { multicall: true },
 });
 
+const POOL_MANAGER_ABI = parseAbi([
+  "function getSlot0(bytes32 poolId) view returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee)",
+  "function extsload(bytes32 slot) view returns (bytes32)",
+]);
+
 const CHAINLINK_ABI = parseAbi([
   "function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
   "function decimals() view returns (uint8)",
 ]);
 
-// O1 API timeout: 5s. Vercel Edge has 25s budget, but o1 is sometimes slow on fresh blocks.
-const O1_TIMEOUT_MS = 5_000;
-
-// In-memory cache. Edge functions are warm for ~5 min after first invocation.
-type MarketcapResult = {
-  marketcapUsd: number;
-  tier: number;
-  nvdaPriceUsd: number;
-  priceStale: boolean;
-  source: "o1" | "cache" | "fallback";
-};
-let cache: { ts: number; data: MarketcapResult } | null = null;
-const CACHE_TTL_MS = 10_000; // 10s, matches API Cache-Control header
+// V4 PoolManager._pools mapping slot. Discovered from the contract's
+// storage layout. The mapping stores a Pool struct where:
+//   slot 0: currency0 (address)
+//   slot 1: currency1 (address)
+//   slot 2: fee       (uint24)
+//   ...
+// We read slot 0 (currency0) by computing the mapping's storage slot.
+const POOLS_MAPPING_SLOT = 6n; // _pools is the 7th state variable in PoolManager
 
 /**
- * Fetch V4 pool state + market cap from o1 API (with timeout).
- */
-async function fetchO1PoolState(
-  tokenAddress: `0x${string}`,
-  timeoutMs: number = O1_TIMEOUT_MS,
-): Promise<{
-  marketcapUsd: number;
-  nvdaPriceUsd: number;
-  priceStale: boolean;
-} | null> {
-  const apiKey = process.env.O1_API;
-  if (!apiKey) return null;
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    const res = await fetch(
-      `https://api.launch.o1.exchange/v1/tokens/8453/${tokenAddress}`,
-      { headers: { "x-api-key": apiKey }, signal: controller.signal },
-    );
-    clearTimeout(timer);
-
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      data?: {
-        market_data?: {
-          market_cap?: { usd?: number };
-          quote_price?: { usd?: number; updated_at?: string };
-          data_status?: string;
-        };
-      };
-    };
-    const marketData = json.data?.market_data;
-    if (!marketData?.market_cap?.usd) return null;
-    return {
-      marketcapUsd: marketData.market_cap.usd,
-      nvdaPriceUsd: marketData.quote_price?.usd ?? 0,
-      priceStale: marketData.data_status === "stale",
-    };
-  } catch (err) {
-    console.warn("o1 API fetch failed/timed out:", err instanceof Error ? err.message : err);
-    return null;
-  }
-}
-
-/**
- * Direct V4 pool read via PoolManager.extsload(slot0).
- * V4 stores pool state at slots keyed by poolId. The first slot returns the
- * packed sqrtPriceX96 + tick + ... as bytes32.
+ * Read currency0 from a V4 pool. Uses the IExtsload interface.
  *
- * SOCIETY has 18 decimals, NVDA has 8 decimals.
- * sqrtPriceX96 in V4 is price(quote) per token, expressed as Q64.96.
- * For an NVDA-paired pool, sqrtPriceX96 = sqrt(price of 1 SOCIETY in NVDA wei units) * 2^96.
+ * In V4's PoolManager, pools are stored in a mapping at slot 6:
+ *   mapping(bytes32 => Pool) public _pools;
+ * The Pool struct begins with currency0 (address) at offset 0.
  *
- * Actually for B20 tokens, the pool is V4 (not V3) and the conventions differ.
- * This is a best-effort fallback. If it fails, we just return 0 market cap.
+ * To read: keccak256(abi.encode(poolId, 6)) gives the slot.
  */
-async function fetchV4PoolDirect(
+async function getCurrency0(
   poolId: `0x${string}`,
-  nvdaPriceUsd: number,
-): Promise<number> {
-  // V4 pools: PoolManager stores state at a slot derived from poolId + struct field.
-  // The struct is: { slot0: (sqrtPriceX96, tick, ...), liquidity: uint128 }
-  // The slot0 struct's "head" slot is at keccak256(abi.encode(poolId, POOLS_SLOT_OFFSET)).
-  // For V4 PoolManager, POOLS_SLOT_OFFSET = 6 (verified via state layout).
-  // PoolKey struct hash: keccak256(abi.encode(currency0, currency1, fee, tickSpacing, hooks))
-
-  // Computing this is complex. For now, we'll skip direct read and rely on o1.
-  // The 5s timeout is short enough that this should rarely fail.
-  return 0;
+): Promise<`0x${string}`> {
+  const slot = keccak256(
+    encodePacked(["bytes32", "uint256"], [poolId, POOLS_MAPPING_SLOT]),
+  );
+  const raw = (await client.readContract({
+    address: POOL_MANAGER,
+    abi: POOL_MANAGER_ABI,
+    functionName: "extsload",
+    args: [slot],
+  })) as `0x${string}`;
+  return `0x${raw.slice(-40)}` as `0x${string}`;
 }
 
 /**
- * Read NVDA/USD price from Chainlink.
+ * Read the V4 pool's current sqrtPriceX96 and detect which side SOCIETY is on.
+ */
+async function getPoolState(poolId: `0x${string}`): Promise<{
+  sqrtPriceX96: bigint;
+  societyIsCurrency0: boolean;
+}> {
+  const [slot0, currency0] = await Promise.all([
+    client.readContract({
+      address: POOL_MANAGER,
+      abi: POOL_MANAGER_ABI,
+      functionName: "getSlot0",
+      args: [poolId],
+    }) as Promise<readonly [bigint, number, number, number]>,
+    getCurrency0(poolId),
+  ]);
+
+  // V4 sorts tokens: currency0 = lower address, currency1 = higher address.
+  // Since NVDA is fixed and SOCIETY address comes from env, we can detect
+  // the orientation by comparing addresses.
+  const nvdaChecksum = getAddress(NVDA_ADDRESS);
+  const currency0Checksum = getAddress(currency0);
+  const societyIsCurrency0 = currency0Checksum !== nvdaChecksum;
+
+  return {
+    sqrtPriceX96: slot0[0],
+    societyIsCurrency0,
+  };
+}
+
+/**
+ * Read the latest NVDA/USD price from Chainlink.
+ * Returns the price as a Number (USD per NVDA).
  */
 export async function getNvdaPriceUsd(): Promise<{
   priceUsd: number;
   updatedAt: number;
   isStale: boolean;
 }> {
-  try {
-    const [roundData, decimals] = await Promise.all([
-      client.readContract({
-        address: CHAINLINK_NVDA_FEED,
-        abi: CHAINLINK_ABI,
-        functionName: "latestRoundData",
-      }) as Promise<readonly [bigint, bigint, bigint, bigint, bigint]>,
-      client.readContract({
-        address: CHAINLINK_NVDA_FEED,
-        abi: CHAINLINK_ABI,
-        functionName: "decimals",
-      }) as Promise<number>,
-    ]);
+  const [roundData, decimals] = await Promise.all([
+    client.readContract({
+      address: CHAINLINK_NVDA_FEED,
+      abi: CHAINLINK_ABI,
+      functionName: "latestRoundData",
+    }) as Promise<readonly [bigint, bigint, bigint, bigint, bigint]>,
+    client.readContract({
+      address: CHAINLINK_NVDA_FEED,
+      abi: CHAINLINK_ABI,
+      functionName: "decimals",
+    }) as Promise<number>,
+  ]);
 
-    const [, answer, , updatedAt] = roundData;
-    const priceUsd = Number(answer) / 10 ** decimals;
+  const [, answer, , updatedAt] = roundData;
+  const priceUsd = Number(answer) / 10 ** decimals;
 
-    const nowSec = Math.floor(Date.now() / 1000);
-    const isStale = nowSec - Number(updatedAt) > 86400;
+  // Stale check: if updatedAt > 24h ago, mark as stale
+  const nowSec = Math.floor(Date.now() / 1000);
+  const isStale = nowSec - Number(updatedAt) > 86400;
 
-    return { priceUsd, updatedAt: Number(updatedAt), isStale };
-  } catch {
-    return { priceUsd: 0, updatedAt: 0, isStale: true };
-  }
+  return { priceUsd, updatedAt: Number(updatedAt), isStale };
 }
 
 /**
- * Compute SOCIETY's USD marketcap + tier.
+ * Compute SOCIETY's USD marketcap from V4 pool + Chainlink.
  *
  * Flow:
- *   1. Try cache (10s TTL)
- *   2. Try o1 API (5s timeout)
- *   3. Fall back to NVDA price only (tier 0, marketcap 0)
+ *   1. Read V4 pool sqrtPriceX96 to get SOCIETY/NVDA ratio
+ *   2. Read Chainlink for NVDA/USD
+ *   3. SOCIETY in USD = (SOCIETY/NVDA ratio) × (NVDA/USD)
+ *   4. marketcap = totalSupply × SOCIETY in USD
  */
 export async function computeMarketcap(
   poolId: `0x${string}`,
-): Promise<MarketcapResult> {
-  // Check cache first
-  if (cache && Date.now() - cache.ts < CACHE_TTL_MS) {
-    return { ...cache.data, source: "cache" };
-  }
+): Promise<{
+  marketcapUsd: number;
+  tier: number;
+  nvdaPriceUsd: number;
+  priceStale: boolean;
+}> {
+  const [pool, price] = await Promise.all([
+    getPoolState(poolId),
+    getNvdaPriceUsd(),
+  ]);
 
-  const societyAddress = process.env.SOCIETY_ADDRESS as
-    | `0x${string}`
-    | undefined;
+  // V4 stores sqrt(token1/token0) * 2^96
+  // If token0=NVDA, token1=SOCIETY: ratio = SOCIETY/NVDA
+  // If token0=SOCIETY, token1=NVDA: ratio = NVDA/SOCIETY (we need the inverse)
+  const ratio = Number(pool.sqrtPriceX96) / 2 ** 96;
+  const priceRatio = ratio * ratio; // token1/token0
 
-  let marketcapUsd = 0;
-  let nvdaPriceUsd = 0;
-  let priceStale = false;
-  let source: "o1" | "cache" | "fallback" = "fallback";
+  // SOCIETY in NVDA = priceRatio if SOCIETY is token1, else 1/priceRatio
+  const societyInNvda = pool.societyIsCurrency0
+    ? 1 / priceRatio
+    : priceRatio;
 
-  // Try o1 API (with 5s timeout)
-  if (societyAddress) {
-    const o1State = await fetchO1PoolState(societyAddress);
-    if (o1State && o1State.marketcapUsd > 0) {
-      marketcapUsd = o1State.marketcapUsd;
-      nvdaPriceUsd = o1State.nvdaPriceUsd;
-      priceStale = o1State.priceStale;
-      source = "o1";
-    }
-  }
+  // SOCIETY in USD
+  const societyInUsd = societyInNvda * price.priceUsd;
 
-  // Always get NVDA price from Chainlink (overrides o1's value if o1 succeeded but with 0)
-  if (nvdaPriceUsd === 0) {
-    try {
-      const price = await getNvdaPriceUsd();
-      nvdaPriceUsd = price.priceUsd;
-      priceStale = price.isStale;
-    } catch {
-      /* ignore */
-    }
-  }
+  // Marketcap in USD. TOTAL_SUPPLY has 18 decimals, price is per raw token.
+  const marketcapUsd =
+    (Number(TOTAL_SUPPLY) / 1e18) * societyInUsd;
 
-  // If o1 didn't give us a market cap, try direct V4 read
-  if (marketcapUsd === 0 && nvdaPriceUsd > 0) {
-    const directCap = await fetchV4PoolDirect(poolId, nvdaPriceUsd);
-    if (directCap > 0) {
-      marketcapUsd = directCap;
-      source = "fallback"; // still fallback technically
-    }
-  }
-
+  // Tier
   const tier = Math.max(
     0,
-    Math.min(
-      TIER_COUNT - 1,
-      Math.floor(marketcapUsd / TIER_STEP),
-    ),
+    Math.min(TIER_COUNT - 1, Math.floor(marketcapUsd / TIER_STEP)),
   );
 
-  const result = {
+  return {
     marketcapUsd,
     tier,
-    nvdaPriceUsd,
-    priceStale,
-    source,
+    nvdaPriceUsd: price.priceUsd,
+    priceStale: price.isStale,
   };
-
-  // Cache result
-  cache = { ts: Date.now(), data: result };
-
-  return result;
 }
