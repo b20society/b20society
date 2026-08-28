@@ -269,6 +269,43 @@ body.menu-open {
   transition: opacity 0.4s ease;
 }
 
+/* ---------- Hero "Built on Base" scene (static brand mark) ---------- */
+.base-scene-wrap {
+  max-width: 360px;
+  margin: 40px auto 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  background: var(--bg-elev);
+  aspect-ratio: 1;
+}
+
+.base-scene {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.base-scene-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.built-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-size: 18px;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  padding: 12px 24px;
+}
+
 /* ---------- Token Section ---------- */
 .token-section {
   background: var(--bg-elev);
@@ -1428,7 +1465,8 @@ footer .links a {
     font-size: 14px;
     line-height: 1.5;
   }
-  .token-hero-image-wrap {
+  .token-hero-image-wrap,
+  .base-scene-wrap {
     max-width: 280px;
     margin: 0 auto;
   }

@@ -79,14 +79,6 @@ function renderToken() {
       img.src = data.image;
     }
   }
-  const heroImg = document.getElementById("hero-token-image");
-  if (heroImg && data.image) {
-    if (heroImg.src !== data.image) {
-      heroImg.style.opacity = "0";
-      heroImg.onload = () => (heroImg.style.opacity = "1");
-      heroImg.src = data.image;
-    }
-  }
 
   // Progress (percentage toward $1M)
   // Tier range is 0..90, so percentage = (tier / 90) * 100
