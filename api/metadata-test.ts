@@ -24,11 +24,13 @@ export default async function handler(
   _res: VercelResponse,
 ): Promise<Response> {
   const url = new URL(req.url ?? "/", PUBLIC_DOMAIN);
+  // Default tier 0 = just launched (fresh state, no trading yet)
   const tier = Math.min(
     90,
-    Math.max(0, Number(url.searchParams.get("tier") ?? 45)),
+    Math.max(0, Number(url.searchParams.get("tier") ?? 0)),
   );
-  const mcap = Number(url.searchParams.get("mcap") ?? 555_555);
+  // Default mcap 0 (no liquidity yet)
+  const mcap = Number(url.searchParams.get("mcap") ?? 0);
 
   // NVDA: use real Chainlink unless overridden
   let nvdaPriceUsd: number;

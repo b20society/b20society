@@ -139,7 +139,9 @@ async function ensureWalletClient() {
 
 async function fetchMetadata() {
   const res = await fetch(
-    TEST ? `/api/nfttest/${state.tokenId}` : `/api/nft/${state.tokenId}`,
+    TEST
+      ? `/api/nfttest/${state.tokenId}?minted=${state.tokenId}`
+      : `/api/nft/${state.tokenId}`,
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

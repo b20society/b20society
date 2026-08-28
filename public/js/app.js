@@ -2,16 +2,21 @@
 // No build step, no framework. Vanilla JS that just calls /api/*
 // Add ?test=1 to URL to use test endpoints (mock data, no real contracts needed).
 
+const REFRESH_MS = 30_000; // refresh every 30 seconds
+
+const SAMPLE_NFTS = [1, 42, 100, 256, 500, 777, 999];
+
 const TEST = new URLSearchParams(window.location.search).get("test") === "1";
 const API = {
   health: TEST ? "/api/healthtest" : "/api/health",
   token: TEST ? "/api/metadata-test" : "/api/metadata",
-  nft: (id) => TEST ? `/api/nfttest/${id}` : `/api/nft/${id}`,
+  // In test mode, the nfttest endpoint requires ?minted=... to return 200.
+  // Pass the full sample list so the home page shows NFTs as "minted".
+  nft: (id) =>
+    TEST
+      ? `/api/nfttest/${id}?minted=${SAMPLE_NFTS.join(",")}`
+      : `/api/nft/${id}`,
 };
-
-const REFRESH_MS = 30_000; // refresh every 30 seconds
-
-const SAMPLE_NFTS = [0, 1, 42, 100, 256, 500, 777, 999];
 
 const state = {
   env: null,
