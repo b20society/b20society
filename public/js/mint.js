@@ -46,6 +46,7 @@ const state = {
   societyAddress: null,
   totalSupply: 0n,
   maxSupply: 0n,
+  maxPerWallet: 5n,
   userMints: 0n,
   userTokenIds: [],
   nftPhases: {}, // tokenId (string) -> phase number
@@ -120,7 +121,7 @@ async function ensureWalletClient() {
 async function loadContractStats() {
   if (!state.nftAddress) return;
   try {
-    const [total, max] = await Promise.all([
+    const [total, max, maxPerWallet] = await Promise.all([
       state.publicClient.readContract({
         address: state.nftAddress,
         abi: NFT_ABI,
@@ -131,9 +132,15 @@ async function loadContractStats() {
         abi: NFT_ABI,
         functionName: "MAX_SUPPLY",
       }),
+      state.publicClient.readContract({
+        address: state.nftAddress,
+        abi: NFT_ABI,
+        functionName: "MAX_PER_WALLET",
+      }),
     ]);
     state.totalSupply = total;
     state.maxSupply = max;
+    state.maxPerWallet = maxPerWallet;
 
     const minted = Number(total);
     const maxN = Number(max);
@@ -146,6 +153,9 @@ async function loadContractStats() {
 
     const bar = $("mint-progress");
     if (bar) bar.style.width = `${pct}%`;
+
+    // Refresh mint button text (in case totalSupply crossed MAX_SUPPLY)
+    updateActionButton();
   } catch (err) {
     console.error("Failed to read contract stats:", err);
     setText("minted-count", "—");
@@ -225,6 +235,8 @@ async function loadUserMints() {
     });
 
     renderUserNfts();
+    // Refresh mint button (userMints may have crossed MAX_PER_WALLET)
+    updateActionButton();
   } catch (err) {
     console.error("Failed to read user mints:", err);
     setStatus(`Failed to load your NFTs: ${err.shortMessage || err.message || "unknown"}`, "error");
@@ -293,12 +305,31 @@ async function renderUserNfts() {
 function updateActionButton() {
   const btn = $("action-btn");
   if (!btn) return;
-  if (state.account) {
-    btn.textContent = "Mint NFT (0.001 ETH)";
-    btn.disabled = false;
-  } else {
+
+  if (!state.account) {
     btn.textContent = "Connect Wallet";
     btn.disabled = false;
+    btn.className = "btn btn-primary btn-full";
+    return;
+  }
+
+  // Wallet is connected — check mint eligibility
+  const soldOut = state.totalSupply >= state.maxSupply;
+  const maxedOut = state.userMints >= state.maxPerWallet;
+  const remaining = state.maxPerWallet - state.userMints;
+
+  if (soldOut) {
+    btn.textContent = "Sold Out (1000/1000)";
+    btn.disabled = true;
+    btn.className = "btn btn-secondary btn-full";
+  } else if (maxedOut) {
+    btn.textContent = `Max mints reached (${state.userMints}/${state.maxPerWallet})`;
+    btn.disabled = true;
+    btn.className = "btn btn-secondary btn-full";
+  } else {
+    btn.textContent = `Mint NFT (0.001 ETH) — ${remaining} left for your wallet`;
+    btn.disabled = false;
+    btn.className = "btn btn-primary btn-full";
   }
 }
 
