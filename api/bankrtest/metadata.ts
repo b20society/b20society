@@ -3,11 +3,10 @@
 // Returns a fixed JSON payload used to validate a downstream consumer
 // (e.g. Bankr's launch pipeline, an external metadata resolver) against
 // the shape they expect.
-//
-// The user can change this body in-place without redeploying the
-// rest of the site — only this function's bundle changes.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export const config = {
+  runtime: "edge",
+};
 
 const METADATA = {
   name: "testmeta",
@@ -29,15 +28,14 @@ const METADATA = {
   },
 };
 
-export default function handler(
-  _req: VercelRequest,
-  res: VercelResponse,
-) {
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader(
-    "Cache-Control",
-    "public, s-maxage=60, max-age=30",
-  );
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.status(200).json(METADATA);
+export default function handler(): Response {
+  return new Response(JSON.stringify(METADATA, null, 2), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      // 60s edge cache, 30s browser cache — small payload, rarely changes
+      "Cache-Control": "public, s-maxage=60, max-age=30",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }
