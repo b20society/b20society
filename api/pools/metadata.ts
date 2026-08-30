@@ -17,7 +17,7 @@ const METADATA = {
   initial_fee_recipient: {
     address: "0x5c71128e059c3dab0c15f565e87d14963b357abe",
   },
-  image: "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihdwf6nucjp6rxkvqm62gvzbrpewy7lbhn2io6vknwgsnu6ecttrq",
+  image: "https://b20society.com/pools/image",
 };
 
 export default function handler(): Response {
