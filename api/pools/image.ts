@@ -1,36 +1,25 @@
 // Pools.fun test image endpoint — marketcap-direction dynamic image.
 //
-// Returns one of three GIFs based on B20 Society's market cap direction
-// compared to the value stored 1+ minute ago in Vercel Edge Config:
+// Returns one of three GIFs based on B20 Society / SWIM market cap
+// direction vs the value stored in Vercel Edge Config 1+ minute ago:
 //
 //   market cap rose by >50% vs previous  → rocket (🚀)
-//   market cap rose vs previous          → swim (default)
-//   market cap fell vs previous          → sink (↓)
-//   first run / no previous              → swim (default)
+//   market cap rose vs previous          → swim  (default)
+//   market cap fell vs previous          → sink  (↓)
+//   first run / no previous              → swim  (default)
 //
-// All images are hosted on Pinata to keep the storage decoupled from
-// b20society.com. The function reads the current market cap from
-// DexScreener, compares to the previous value stored in Vercel Edge
-// Config, picks the appropriate image, and writes the new value back.
+// Vercel Cron (defined in vercel.json) calls /api/cron-tick every
+// minute, which in turn calls this endpoint. This keeps the state
+// fresh even when no real user is visiting the site.
 //
-// 60s edge cache so the function executes at most once per minute
-// per visitor (matches the "1 menit" comparison window the user wants).
-//
-// Storage: Vercel Edge Config (key: "b20-mc")
-//   EDGE_CONFIG env var is set on the project. We use the REST API
-//   directly with B20_VERCEL_PAT (also in env) so we don't need to
-//   add the @vercel/edge-config SDK as a dependency.
+// 60s edge cache so concurrent visitors share one function execution.
 
 export const config = {
   runtime: "edge",
 };
 
-interface EdgeContext {
-  waitUntil(promise: Promise<unknown>): void;
-}
-
-// Three GIFs, hosted on Pinata. These can be swapped without redeploy
-// by editing this constant block.
+// Three GIFs, hosted on Pinata to decouple image storage from
+// b20society.com.
 const IMG_SWIM =
   "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihdwf6nucjp6rxkvqm62gvzbrpewy7lbhn2io6vknwgsnu6ecttrq";
 const IMG_SINK =
@@ -38,7 +27,8 @@ const IMG_SINK =
 const IMG_ROCKET =
   "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihaljmd2moifta3d3xctltchmav3cvnno7wpx6epdwntzafyo3d5q";
 
-// 50% threshold for the "rocket" image
+const ROCKET_THRESHOLD = 0.5; // +50% change → rocket
+
 const EDGE_CONFIG_ID = process.env.EDGE_CONFIG;
 const VERCEL_PAT = process.env.B20_VERCEL_PAT;
 const VERCEL_API = "https://api.vercel.com";
@@ -96,121 +86,73 @@ async function writeState(value: number, ts: number): Promise<void> {
   }
 }
 
-// Reads market data (cap + 5-min change %) for SWIM (Robinhood) or B20
-// (Base, fallback). Single DexScreener call returns both fields, so
-// we use the 5-min priceChange as a smoother direction signal — fewer
-// false positives from sub-minute noise than a raw snapshot diff.
-interface PoolData {
-  marketCap: number;
-  change5m: number | null; // percent change over 5 minutes (signed)
-}
-
-async function getPoolData(): Promise<PoolData> {
+// Reads market cap for either SWIM (if env vars set) or B20 Society
+// fallback. SWIM (Robinhood chain) uses the pair API; B20 (Base) uses
+// the token API.
+async function getMarketCapUsd(): Promise<number> {
   const swimPool = process.env.SWIM_POOL_ADDRESS;
   const b20Token = "0xb2000000000000000000006006292Dcc749D6401";
 
-  // Prefer SWIM (Robinhood) if env var is set
   if (swimPool && swimPool !== "0x0000000000000000000000000000000000000000") {
     const url = `https://api.dexscreener.com/latest/dex/pairs/robinhood/${swimPool}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
-    if (!res.ok) return { marketCap: 0, change5m: null };
+    if (!res.ok) return 0;
     const data = (await res.json()) as {
-      pair?: {
-        marketCap?: number;
-        fdv?: number;
-        priceChange?: { m5?: number };
-      };
-      pairs?: Array<{
-        marketCap?: number;
-        fdv?: number;
-        priceChange?: { m5?: number };
-      }>;
+      pair?: { marketCap?: number; fdv?: number };
+      pairs?: Array<{ marketCap?: number; fdv?: number }>;
     };
     const p = data.pair ?? data.pairs?.[0];
-    if (!p) return { marketCap: 0, change5m: null };
-    return {
-      marketCap: p.marketCap ?? p.fdv ?? 0,
-      change5m: p.priceChange?.m5 ?? null,
-    };
+    return p?.marketCap ?? p?.fdv ?? 0;
   }
 
-  // Fallback: B20 Society on Base
   const url =
     "https://api.dexscreener.com/latest/dex/tokens/" + b20Token;
   const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
-  if (!res.ok) return { marketCap: 0, change5m: null };
+  if (!res.ok) return 0;
   const data = (await res.json()) as {
-    pairs?: Array<{
-      marketCap?: number;
-      fdv?: number;
-      priceChange?: { m5?: number };
-    }>;
+    pairs?: Array<{ marketCap?: number; fdv?: number }>;
   };
   const pair = data.pairs?.[0];
-  if (!pair) return { marketCap: 0, change5m: null };
-  return {
-    marketCap: pair.marketCap ?? pair.fdv ?? 0,
-    change5m: pair.priceChange?.m5 ?? null,
-  };
+  return pair?.marketCap ?? pair?.fdv ?? 0;
 }
 
 type Tier = "rocket" | "swim" | "sink";
 
-// Pick tier using DexScreener's 5-min price change as the primary
-// signal. Falls back to snapshot comparison if 5-min data is missing.
-// This is more efficient than always comparing raw snapshots (no
-// extra storage writes) AND smoother (averaged over 5 min, fewer
-// sub-minute false positives).
-const ROCKET_CHANGE_THRESHOLD = 50; // +50% over 5 min → rocket
-const SWIM_CHANGE_THRESHOLD = 1;   // +1% over 5 min → swim (any positive)
+function pickTier(current: number, prev: number, prevTs: number): Tier {
+  if (prev <= 0 || prevTs <= 0) return "swim"; // first run
+  if (current <= 0) return "sink"; // data error → safe default
 
-function pickTier(change5m: number | null, mc: number, prev: McState): Tier {
-  // 5-min change is the primary signal
-  if (change5m !== null) {
-    if (change5m >= ROCKET_CHANGE_THRESHOLD) return "rocket";
-    if (change5m >= SWIM_CHANGE_THRESHOLD) return "swim";
-    if (change5m < 0) return "sink";
-    // 0% change: fall through to snapshot check
+  const change = (current - prev) / prev;
+
+  if (current > prev) {
+    if (change > ROCKET_THRESHOLD) return "rocket";
+    return "swim";
   }
+  if (current < prev) return "sink";
+  return "swim"; // no change → neutral swim
+}
 
-  // Fallback: raw snapshot comparison (1 min ago)
-  if (prev.value > 0 && mc > 0) {
-    const change = (mc - prev.value) / prev.value * 100;
-    if (change > ROCKET_CHANGE_THRESHOLD) return "rocket";
-    if (change > 0) return "swim";
-    if (change < 0) return "sink";
-  }
-
-  // No data → default
-  return "swim";
+interface EdgeContext {
+  waitUntil(promise: Promise<unknown>): void;
 }
 
 export default async function handler(
   _req: Request,
   ctx: EdgeContext,
 ): Promise<Response> {
-  // Read current pool data + previous state in parallel
-  const [pool, prev] = await Promise.all([
-    getPoolData().catch(() => ({ marketCap: 0, change5m: null })),
+  // Read current MC + previous state in parallel
+  const [mc, prev] = await Promise.all([
+    getMarketCapUsd().catch(() => 0),
     readState(),
   ]);
 
-  const tier = pickTier(pool.change5m, pool.marketCap, prev);
+  const tier = pickTier(mc, prev.value, prev.ts);
   const imageUrl =
     tier === "rocket" ? IMG_ROCKET : tier === "sink" ? IMG_SINK : IMG_SWIM;
 
-  // Persist current MC for fallback comparison. Use ctx.waitUntil so
-  // the Vercel edge runtime keeps the request alive until the write
-  // completes (instead of terminating the function when we return).
-  ctx.waitUntil(writeState(pool.marketCap, Date.now()).catch(() => {}));
-
-  // 302 redirect to the chosen image on Pinata. The consumer follows
-  // the redirect; the function itself stays lightweight.
-  const changeStr = pool.change5m !== null
-    ? pool.change5m.toFixed(2) + "% (5m)"
-    : prev.value > 0
-    ? (((pool.marketCap - prev.value) / prev.value) * 100).toFixed(2) + "% (1m)"
-    : "n/a";
+  // Persist current value for next comparison. ctx.waitUntil keeps
+  // the request alive until the write completes.
+  ctx.waitUntil(writeState(mc, Date.now()).catch(() => {}));
 
   return new Response(null, {
     status: 302,
@@ -218,9 +160,11 @@ export default async function handler(
       Location: imageUrl,
       "Cache-Control": "public, s-maxage=60, max-age=30",
       "X-Pool-Tier": tier,
-      "X-Pool-Marketcap": String(pool.marketCap),
-      "X-Pool-Change-5m": pool.change5m !== null ? pool.change5m.toFixed(2) + "%" : "n/a",
-      "X-Pool-Change": changeStr,
+      "X-Pool-Marketcap": String(mc),
+      "X-Pool-Prev-Marketcap": String(prev.value),
+      "X-Pool-Change": prev.value > 0
+        ? (((mc - prev.value) / prev.value) * 100).toFixed(2) + "%"
+        : "n/a",
     },
   });
 }
