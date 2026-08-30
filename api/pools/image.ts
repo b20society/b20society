@@ -1,16 +1,17 @@
 // Pools.fun test image endpoint — marketcap-direction dynamic image.
 //
 // Returns one of three GIFs based on B20 Society / SWIM market cap
-// direction vs the value stored in Vercel Edge Config 1+ minute ago:
+// direction vs the value from ~1 minute ago (4 polls at 15s each):
 //
-//   market cap rose by >50% vs previous  → rocket (🚀)
-//   market cap rose vs previous          → swim  (default)
-//   market cap fell vs previous          → sink  (↓)
-//   first run / no previous              → swim  (default)
+//   market cap rose by >50% vs ~1min-ago  → rocket (🚀)
+//   market cap rose vs ~1min-ago          → swim  (default)
+//   market cap fell vs ~1min-ago          → sink  (↓)
+//   first run / no history                → swim  (default)
 //
-// Vercel Cron (defined in vercel.json) calls /api/cron-tick every
-// minute, which in turn calls this endpoint. This keeps the state
-// fresh even when no real user is visiting the site.
+// Vercel Cron (defined in vercel.json, every 15s) calls /api/cron-tick,
+// which in turn calls this endpoint. Polling frequently keeps the
+// state fresh; the tier decision is still based on a 1-min window,
+// not the 15s snapshot, so brief spikes don't trigger an image flip.
 //
 // 60s edge cache so concurrent visitors share one function execution.
 
@@ -27,44 +28,37 @@ const IMG_SINK =
 const IMG_ROCKET =
   "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihaljmd2moifta3d3xctltchmav3cvnno7wpx6epdwntzafyo3d5q";
 
-const ROCKET_THRESHOLD = 0.5; // +50% change → rocket
+const ROCKET_THRESHOLD = 0.5; // +50% change vs ~1min-ago → rocket
+const HISTORY_MAX = 12;       // store up to 12 entries (~3 min at 15s polling)
+const COMPARE_WINDOW_MS = 60_000; // 1 minute
 
 const EDGE_CONFIG_ID = process.env.EDGE_CONFIG;
 const VERCEL_PAT = process.env.B20_VERCEL_PAT;
 const VERCEL_API = "https://api.vercel.com";
 
-interface McState {
+interface McEntry {
   value: number;
-  ts: number;
+  ts: number; // milliseconds since epoch
 }
 
-async function readState(): Promise<McState> {
-  if (!EDGE_CONFIG_ID || !VERCEL_PAT) {
-    return { value: 0, ts: 0 };
-  }
+async function readHistory(): Promise<McEntry[]> {
+  if (!EDGE_CONFIG_ID || !VERCEL_PAT) return [];
   try {
-    const url = `${VERCEL_API}/v1/edge-config/${EDGE_CONFIG_ID}/item/mc`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${VERCEL_PAT}` },
-      signal: AbortSignal.timeout(3_000),
-    });
-    if (!res.ok) return { value: 0, ts: 0 };
-    const data = (await res.json()) as { value: string };
-    const tsRes = await fetch(
-      `${VERCEL_API}/v1/edge-config/${EDGE_CONFIG_ID}/item/ts`,
+    const res = await fetch(
+      `${VERCEL_API}/v1/edge-config/${EDGE_CONFIG_ID}/item/mc_history`,
       { headers: { Authorization: `Bearer ${VERCEL_PAT}` } },
     );
-    const tsData = (await tsRes.json()) as { value: string };
-    return {
-      value: parseFloat(data.value) || 0,
-      ts: parseInt(tsData.value || "0", 10) || 0,
-    };
+    if (!res.ok) return [];
+    const data = (await res.json()) as { value?: string };
+    if (!data.value) return [];
+    const parsed = JSON.parse(data.value);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return { value: 0, ts: 0 };
+    return [];
   }
 }
 
-async function writeState(value: number, ts: number): Promise<void> {
+async function writeHistory(history: McEntry[]): Promise<void> {
   if (!EDGE_CONFIG_ID || !VERCEL_PAT) return;
   try {
     await fetch(`${VERCEL_API}/v1/edge-config/${EDGE_CONFIG_ID}/items`, {
@@ -75,20 +69,22 @@ async function writeState(value: number, ts: number): Promise<void> {
       },
       body: JSON.stringify({
         items: [
-          { operation: "upsert", key: "mc", value: String(value) },
-          { operation: "upsert", key: "ts", value: String(ts) },
+          {
+            operation: "upsert",
+            key: "mc_history",
+            value: JSON.stringify(history),
+          },
         ],
       }),
       signal: AbortSignal.timeout(3_000),
     });
   } catch {
-    // best-effort; next call will retry
+    // best-effort
   }
 }
 
-// Reads market cap for either SWIM (if env vars set) or B20 Society
-// fallback. SWIM (Robinhood chain) uses the pair API; B20 (Base) uses
-// the token API.
+// Reads market cap for either SWIM (Robinhood, if env vars set) or
+// B20 Society (Base, fallback).
 async function getMarketCapUsd(): Promise<number> {
   const swimPool = process.env.SWIM_POOL_ADDRESS;
   const b20Token = "0xb2000000000000000000006006292Dcc749D6401";
@@ -118,18 +114,47 @@ async function getMarketCapUsd(): Promise<number> {
 
 type Tier = "rocket" | "swim" | "sink";
 
-function pickTier(current: number, prev: number, prevTs: number): Tier {
-  if (prev <= 0 || prevTs <= 0) return "swim"; // first run
-  if (current <= 0) return "sink"; // data error → safe default
-
-  const change = (current - prev) / prev;
-
-  if (current > prev) {
-    if (change > ROCKET_THRESHOLD) return "rocket";
-    return "swim";
+function pickTier(
+  current: number,
+  history: McEntry[],
+  now: number,
+): { tier: Tier; baseline: number | null; baselineAgeMs: number | null } {
+  if (current <= 0) return { tier: "sink", baseline: null, baselineAgeMs: null };
+  if (history.length === 0) {
+    return { tier: "swim", baseline: null, baselineAgeMs: null };
   }
-  if (current < prev) return "sink";
-  return "swim"; // no change → neutral swim
+
+  // Find the entry closest to (now - COMPARE_WINDOW_MS) i.e. ~1 min ago.
+  // If no entry is at least COMPARE_WINDOW_MS old, fall back to the
+  // oldest entry we DO have (still gives a reasonable direction).
+  const target = now - COMPARE_WINDOW_MS;
+  let baseline: McEntry | null = null;
+  let closestDiff = Infinity;
+  for (const e of history) {
+    const diff = Math.abs(e.ts - target);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      baseline = e;
+    }
+  }
+  if (!baseline || baseline.value <= 0) {
+    return { tier: "swim", baseline: null, baselineAgeMs: null };
+  }
+
+  const change = (current - baseline.value) / baseline.value;
+  let tier: Tier;
+  if (current > baseline.value) {
+    tier = change > ROCKET_THRESHOLD ? "rocket" : "swim";
+  } else if (current < baseline.value) {
+    tier = "sink";
+  } else {
+    tier = "swim";
+  }
+  return {
+    tier,
+    baseline: baseline.value,
+    baselineAgeMs: now - baseline.ts,
+  };
 }
 
 interface EdgeContext {
@@ -140,31 +165,40 @@ export default async function handler(
   _req: Request,
   ctx: EdgeContext,
 ): Promise<Response> {
-  // Read current MC + previous state in parallel
-  const [mc, prev] = await Promise.all([
+  const now = Date.now();
+
+  // Read current MC + history in parallel
+  const [mc, history] = await Promise.all([
     getMarketCapUsd().catch(() => 0),
-    readState(),
+    readHistory(),
   ]);
 
-  const tier = pickTier(mc, prev.value, prev.ts);
+  const { tier, baseline, baselineAgeMs } = pickTier(mc, history, now);
   const imageUrl =
     tier === "rocket" ? IMG_ROCKET : tier === "sink" ? IMG_SINK : IMG_SWIM;
 
-  // Persist current value for next comparison. ctx.waitUntil keeps
-  // the request alive until the write completes.
-  ctx.waitUntil(writeState(mc, Date.now()).catch(() => {}));
+  // Append current MC to history, trim, then write back. ctx.waitUntil
+  // keeps the request alive until the write completes.
+  const newHistory = [...history, { value: mc, ts: now }].slice(-HISTORY_MAX);
+  ctx.waitUntil(writeHistory(newHistory).catch(() => {}));
+
+  const changeStr =
+    baseline !== null && baseline > 0
+      ? (((mc - baseline) / baseline) * 100).toFixed(2) + "%"
+      : "n/a";
 
   return new Response(null, {
     status: 302,
     headers: {
       Location: imageUrl,
-      "Cache-Control": "public, s-maxage=60, max-age=30",
+      "Cache-Control": "public, s-maxage=15, max-age=10",
       "X-Pool-Tier": tier,
       "X-Pool-Marketcap": String(mc),
-      "X-Pool-Prev-Marketcap": String(prev.value),
-      "X-Pool-Change": prev.value > 0
-        ? (((mc - prev.value) / prev.value) * 100).toFixed(2) + "%"
-        : "n/a",
+      "X-Pool-Baseline": baseline !== null ? String(baseline) : "n/a",
+      "X-Pool-Baseline-Age-Sec":
+        baselineAgeMs !== null ? String(Math.round(baselineAgeMs / 1000)) : "n/a",
+      "X-Pool-Change": changeStr,
+      "X-Pool-History-Size": String(newHistory.length),
     },
   });
 }
