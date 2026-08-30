@@ -12,5 +12,8 @@
     { "source": "/bankrtest/image", "destination": "/api/bankrtest/image" },
     { "source": "/pools/metadata", "destination": "/api/pools/metadata" },
     { "source": "/pools/image", "destination": "/api/pools/image" }
+  ],
+  "crons": [
+    { "path": "/api/cron-tick", "schedule": "* * * * *" }
   ]
 }
