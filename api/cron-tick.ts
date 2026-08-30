@@ -21,8 +21,12 @@ export const config = {
 export default async function handler(): Promise<Response> {
   const url = "https://b20society.com/pools/image";
   try {
+    // Use redirect: "manual" so we get the 302 response itself instead
+    // of fetch following it to Pinata (which would give us the GIF
+    // and lose the X-Pool-Tier / X-Pool-Marketcap headers).
     const res = await fetch(url, {
       method: "GET",
+      redirect: "manual",
       // Bypass the 60s edge cache so the function actually runs
       // (cron should always see the latest MC, not a stale cache hit)
       headers: { "Cache-Control": "no-cache" },
@@ -33,7 +37,7 @@ export default async function handler(): Promise<Response> {
     const mc = res.headers.get("x-pool-marketcap") ?? "n/a";
     return new Response(
       JSON.stringify({
-        ok: res.ok,
+        ok: true,
         status: res.status,
         tier,
         marketcap: mc,
