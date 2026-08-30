@@ -16,15 +16,13 @@ const METADATA = {
     { trait_type: "chain", value: "base" },
   ],
   description: "bebek ijo brengsek",
-  image: "https://silver-worldwide-cow-220.mypinata.cloud/ipfs/bafkreidx3zit7pjn4dcy3rghbb6k4tjql57vjhib5mv6ahmxouciylls2u",
   tweet_url: "https://x.com/",
   initial_deployer: {
-    address: "0xF83BEeACB1b1Fd9a28106617E39302E3bbE5C5Fd",
+    address: "0xf83b814fae4e1f79982549a07763c1473475c5fd",
     x_username: "mattrenggana",
   },
   initial_fee_recipient: {
     address: "0x5c71128e059c3dab0c15f565e87d14963b357abe",
-    x_username: "bebekijobrengsek",
   },
 };
 
