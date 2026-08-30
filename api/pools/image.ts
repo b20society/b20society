@@ -9,26 +9,22 @@
 //   market cap < $5,000  → duck-low.png  (swimming)
 //   market cap >= $5,000 → duck-high.png (standing)
 //
-// Runtime: Node.js. Reads PNG bytes from /public/images/pools/ at
-// module load and serves from memory.
+// Runtime: edge. Images are fetched lazily from the project's own
+// public CDN (so the bytes are accessible without filesystem) and
+// cached in module scope for the lifetime of the edge instance.
 // 60s edge cache, 30s browser cache.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { readFileSync } from "fs";
-import { join } from "path";
-
 export const config = {
-  runtime: "nodejs",
+  runtime: "edge",
 };
 
 const TIER_THRESHOLD_USD = 5_000;
 
-// Read PNG bytes at module load (cold start cost only).
-// Files live in /public/images/pools/ — they're deployed as static
-// assets AND accessible to the function via fs.
-const ASSETS_DIR = join(process.cwd(), "public", "images", "pools");
-const DUCK_LOW = readFileSync(join(ASSETS_DIR, "duck-low.png"));
-const DUCK_HIGH = readFileSync(join(ASSETS_DIR, "duck-high.png"));
+const PUBLIC_BASE = "https://b20society.com";
+const IMAGES: Record<"low" | "high", Promise<ArrayBuffer>> = {
+  low: fetch(`${PUBLIC_BASE}/images/pools/duck-low.png`).then((r) => r.arrayBuffer()),
+  high: fetch(`${PUBLIC_BASE}/images/pools/duck-high.png`).then((r) => r.arrayBuffer()),
+};
 
 async function getMarketCapUsd(): Promise<number> {
   const url =
@@ -43,10 +39,7 @@ async function getMarketCapUsd(): Promise<number> {
   return pair?.marketCap ?? pair?.fdv ?? 0;
 }
 
-export default async function handler(
-  _req: VercelRequest,
-  res: VercelResponse,
-): Promise<void> {
+export default async function handler(): Promise<Response> {
   let mc = 0;
   try {
     mc = await getMarketCapUsd();
@@ -55,12 +48,25 @@ export default async function handler(
   }
 
   const tier: "low" | "high" = mc >= TIER_THRESHOLD_USD ? "high" : "low";
-  const bytes = tier === "high" ? DUCK_HIGH : DUCK_LOW;
 
-  res.setHeader("Content-Type", "image/png");
-  res.setHeader("Content-Length", bytes.length.toString());
-  res.setHeader("Cache-Control", "public, s-maxage=60, max-age=30");
-  res.setHeader("X-Pool-Tier", tier);
-  res.setHeader("X-Pool-Marketcap", String(mc));
-  res.status(200).end(bytes);
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await IMAGES[tier];
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: "Failed to load image", tier, message: String(err) }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  return new Response(bytes, {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Content-Length": bytes.byteLength.toString(),
+      "Cache-Control": "public, s-maxage=60, max-age=30",
+      "X-Pool-Tier": tier,
+      "X-Pool-Marketcap": String(mc),
+    },
+  });
 }
