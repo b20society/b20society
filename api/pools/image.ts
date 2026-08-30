@@ -3,26 +3,28 @@
 // Returns one of three GIFs based on B20 Society / SWIM market cap
 // direction vs the value from ~1 minute ago:
 //
-//   market cap rose by >50% vs ~1min-ago  → rocket (🚀)
+//   market cap rose by >50% vs ~1min-ago  → rocket
 //   market cap rose vs ~1min-ago          → swim  (default)
-//   market cap fell vs ~1min-ago          → sink  (↓)
+//   market cap fell vs ~1min-ago          → sink
 //   first run / no history                → swim  (default)
 //
 // Vercel Cron (defined in vercel.json, every minute) calls
 // /api/cron-tick, which in turn calls this endpoint. Polling every
 // minute keeps the state fresh; the tier decision is based on a
 // 1-min window so brief spikes don't trigger an image flip.
+//
+// Image bytes are served directly from the function (no redirect).
+// Files live in /public/images/pools/ — they're deployed as static
+// assets AND accessible to the function via fs. We load them once
+// at module init and serve from memory.
+
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export const config = {
-  runtime: "edge",
+  runtime: "nodejs",
 };
-
-const IMG_SWIM =
-  "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihdwf6nucjp6rxkvqm62gvzbrpewy7lbhn2io6vknwgsnu6ecttrq";
-const IMG_SINK =
-  "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafybeigtb6dxnt562zfpvv73ysnibhvlfjbcjrj4gnj33yelglwett3ijq";
-const IMG_ROCKET =
-  "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihaljmd2moifta3d3xctltchmav3cvnno7wpx6epdwntzafyo3d5q";
 
 const ROCKET_THRESHOLD = 0.5;
 const HISTORY_MAX = 12;
@@ -31,6 +33,11 @@ const COMPARE_WINDOW_MS = 60_000;
 const EDGE_CONFIG_ID = process.env.EDGE_CONFIG;
 const VERCEL_PAT = process.env.B20_VERCEL_PAT;
 const VERCEL_API = "https://api.vercel.com";
+
+const ASSETS_DIR = join(process.cwd(), "public", "images", "pools");
+const IMG_SWIM = readFileSync(join(ASSETS_DIR, "swim.gif"));
+const IMG_SINK = readFileSync(join(ASSETS_DIR, "sink.gif"));
+const IMG_ROCKET = readFileSync(join(ASSETS_DIR, "rocket.gif"));
 
 interface McEntry { value: number; ts: number; }
 
@@ -132,14 +139,10 @@ function pickTier(
   return { tier, baseline: baseline.value, baselineAgeMs: now - baseline.ts };
 }
 
-interface EdgeContext {
-  waitUntil(promise: Promise<unknown>): void;
-}
-
 export default async function handler(
-  _req: Request,
-  ctx: EdgeContext,
-): Promise<Response> {
+  _req: VercelRequest,
+  res: VercelResponse,
+): Promise<void> {
   const now = Date.now();
 
   const [mc, history] = await Promise.all([
@@ -148,31 +151,29 @@ export default async function handler(
   ]);
 
   const { tier, baseline, baselineAgeMs } = pickTier(mc, history, now);
-  const imageUrl =
+  const bytes =
     tier === "rocket" ? IMG_ROCKET : tier === "sink" ? IMG_SINK : IMG_SWIM;
 
-  // Append current to history, trim, write back. ctx.waitUntil keeps
-  // the request alive until the write completes.
+  // Append current to history, trim, write back.
   const newHistory = [...history, { value: mc, ts: now }].slice(-HISTORY_MAX);
-  ctx.waitUntil(writeHistory(newHistory).catch(() => {}));
+  writeHistory(newHistory).catch(() => {});
 
-  const changeStr =
+  const changePct =
     baseline !== null && baseline > 0
-      ? (((mc - baseline) / baseline) * 100).toFixed(2) + "%"
-      : "n/a";
+      ? ((mc - baseline) / baseline) * 100
+      : null;
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: imageUrl,
-      "Cache-Control": "public, s-maxage=60, max-age=30",
-      "X-Pool-Tier": tier,
-      "X-Pool-Marketcap": String(mc),
-      "X-Pool-Baseline": baseline !== null ? String(baseline) : "n/a",
-      "X-Pool-Baseline-Age-Sec":
-        baselineAgeMs !== null ? String(Math.round(baselineAgeMs / 1000)) : "n/a",
-      "X-Pool-Change": changeStr,
-      "X-Pool-History-Size": String(newHistory.length),
-    },
-  });
+  res.setHeader("Content-Type", "image/gif");
+  res.setHeader("Content-Length", bytes.length.toString());
+  res.setHeader("Cache-Control", "public, s-maxage=60, max-age=30");
+  res.setHeader("X-Pool-Tier", tier);
+  res.setHeader("X-Pool-Marketcap", String(mc));
+  res.setHeader("X-Pool-Baseline", baseline !== null ? String(baseline) : "n/a");
+  res.setHeader(
+    "X-Pool-Baseline-Age-Sec",
+    baselineAgeMs !== null ? String(Math.round(baselineAgeMs / 1000)) : "n/a",
+  );
+  res.setHeader("X-Pool-Change", changePct !== null ? changePct.toFixed(2) + "%" : "n/a");
+  res.setHeader("X-Pool-History-Size", String(newHistory.length));
+  res.status(200).end(bytes);
 }
