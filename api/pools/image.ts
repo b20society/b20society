@@ -65,6 +65,48 @@ async function writeHistory(history: McEntry[]): Promise<void> {
   } catch {}
 }
 
+interface TierLogEntry {
+  ts: number;
+  tier: Tier;
+  mc: number;
+  baseline: number | null;
+  change_pct: number | null;
+}
+
+async function readTierLog(): Promise<TierLogEntry[]> {
+  if (!EDGE_CONFIG_ID || !VERCEL_PAT) return [];
+  try {
+    const res = await fetch(
+      `${VERCEL_API}/v1/edge-config/${EDGE_CONFIG_ID}/item/tier_log`,
+      { headers: { Authorization: `Bearer ${VERCEL_PAT}` } },
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { value?: string };
+    if (!data.value) return [];
+    const parsed = JSON.parse(data.value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeTierLog(log: TierLogEntry[]): Promise<void> {
+  if (!EDGE_CONFIG_ID || !VERCEL_PAT) return;
+  try {
+    await fetch(`${VERCEL_API}/v1/edge-config/${EDGE_CONFIG_ID}/items`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${VERCEL_PAT}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        items: [{ operation: "upsert", key: "tier_log", value: JSON.stringify(log) }],
+      }),
+      signal: AbortSignal.timeout(3_000),
+    });
+  } catch {}
+}
+
 async function getMarketCapUsd(): Promise<number> {
   const swimPool = process.env.SWIM_POOL_ADDRESS;
   const b20Token = "0xb2000000000000000000006006292Dcc749D6401";
@@ -147,9 +189,10 @@ export default async function handler(
 ): Promise<Response> {
   const now = Date.now();
 
-  const [mc, history] = await Promise.all([
+  const [mc, history, tierLog] = await Promise.all([
     getMarketCapUsd().catch(() => 0),
     readHistory(),
+    readTierLog(),
   ]);
 
   const { tier, baseline, baselineAgeMs } = pickTier(mc, history, now);
@@ -158,6 +201,21 @@ export default async function handler(
   // Update history.
   const newHistory = [...history, { value: mc, ts: now }].slice(-HISTORY_MAX);
   ctx.waitUntil(writeHistory(newHistory).catch(() => {}));
+
+  // Append tier change to log (only when tier actually changes —
+  // deduped to keep noise low). Log is capped at 200 entries.
+  const lastTier = tierLog.length > 0 ? tierLog[tierLog.length - 1].tier : null;
+  if (tier !== lastTier) {
+    const changePct =
+      baseline !== null && baseline > 0
+        ? ((mc - baseline) / baseline) * 100
+        : null;
+    const newLog = [
+      ...tierLog,
+      { ts: now, tier, mc, baseline, change_pct: changePct },
+    ].slice(-200);
+    ctx.waitUntil(writeTierLog(newLog).catch(() => {}));
+  }
 
   // Redirect to the local /images/pools/... file. Vercel serves
   // these directly from the same edge, no Pinata dependency.
