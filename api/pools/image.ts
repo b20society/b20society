@@ -39,8 +39,6 @@ const IMG_ROCKET =
   "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihaljmd2moifta3d3xctltchmav3cvnno7wpx6epdwntzafyo3d5q";
 
 // 50% threshold for the "rocket" image
-const ROCKET_THRESHOLD = 0.5;
-
 const EDGE_CONFIG_ID = process.env.EDGE_CONFIG;
 const VERCEL_PAT = process.env.B20_VERCEL_PAT;
 const VERCEL_API = "https://api.vercel.com";
@@ -98,10 +96,16 @@ async function writeState(value: number, ts: number): Promise<void> {
   }
 }
 
-// Reads market cap for either SWIM (if env vars set) or B20 Society fallback.
-// SWIM (Robinhood chain) uses the pair API directly for accuracy.
-// B20 Society (Base) uses the token API.
-async function getMarketCapUsd(): Promise<number> {
+// Reads market data (cap + 5-min change %) for SWIM (Robinhood) or B20
+// (Base, fallback). Single DexScreener call returns both fields, so
+// we use the 5-min priceChange as a smoother direction signal — fewer
+// false positives from sub-minute noise than a raw snapshot diff.
+interface PoolData {
+  marketCap: number;
+  change5m: number | null; // percent change over 5 minutes (signed)
+}
+
+async function getPoolData(): Promise<PoolData> {
   const swimPool = process.env.SWIM_POOL_ADDRESS;
   const b20Token = "0xb2000000000000000000006006292Dcc749D6401";
 
@@ -109,75 +113,114 @@ async function getMarketCapUsd(): Promise<number> {
   if (swimPool && swimPool !== "0x0000000000000000000000000000000000000000") {
     const url = `https://api.dexscreener.com/latest/dex/pairs/robinhood/${swimPool}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
-    if (!res.ok) return 0;
+    if (!res.ok) return { marketCap: 0, change5m: null };
     const data = (await res.json()) as {
-      pair?: { marketCap?: number; fdv?: number };
-      pairs?: Array<{ marketCap?: number; fdv?: number }>;
+      pair?: {
+        marketCap?: number;
+        fdv?: number;
+        priceChange?: { m5?: number };
+      };
+      pairs?: Array<{
+        marketCap?: number;
+        fdv?: number;
+        priceChange?: { m5?: number };
+      }>;
     };
     const p = data.pair ?? data.pairs?.[0];
-    return p?.marketCap ?? p?.fdv ?? 0;
+    if (!p) return { marketCap: 0, change5m: null };
+    return {
+      marketCap: p.marketCap ?? p.fdv ?? 0,
+      change5m: p.priceChange?.m5 ?? null,
+    };
   }
 
   // Fallback: B20 Society on Base
   const url =
     "https://api.dexscreener.com/latest/dex/tokens/" + b20Token;
   const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
-  if (!res.ok) return 0;
+  if (!res.ok) return { marketCap: 0, change5m: null };
   const data = (await res.json()) as {
-    pairs?: Array<{ marketCap?: number; fdv?: number }>;
+    pairs?: Array<{
+      marketCap?: number;
+      fdv?: number;
+      priceChange?: { m5?: number };
+    }>;
   };
   const pair = data.pairs?.[0];
-  return pair?.marketCap ?? pair?.fdv ?? 0;
+  if (!pair) return { marketCap: 0, change5m: null };
+  return {
+    marketCap: pair.marketCap ?? pair.fdv ?? 0,
+    change5m: pair.priceChange?.m5 ?? null,
+  };
 }
 
 type Tier = "rocket" | "swim" | "sink";
 
-function pickTier(current: number, prev: number, prevTs: number): Tier {
-  if (prev <= 0 || prevTs <= 0) return "swim"; // first run
-  if (current <= 0) return "sink"; // data error → safe default
+// Pick tier using DexScreener's 5-min price change as the primary
+// signal. Falls back to snapshot comparison if 5-min data is missing.
+// This is more efficient than always comparing raw snapshots (no
+// extra storage writes) AND smoother (averaged over 5 min, fewer
+// sub-minute false positives).
+const ROCKET_CHANGE_THRESHOLD = 50; // +50% over 5 min → rocket
+const SWIM_CHANGE_THRESHOLD = 1;   // +1% over 5 min → swim (any positive)
 
-  const change = (current - prev) / prev;
-
-  if (current > prev) {
-    if (change > ROCKET_THRESHOLD) return "rocket";
-    return "swim";
+function pickTier(change5m: number | null, mc: number, prev: McState): Tier {
+  // 5-min change is the primary signal
+  if (change5m !== null) {
+    if (change5m >= ROCKET_CHANGE_THRESHOLD) return "rocket";
+    if (change5m >= SWIM_CHANGE_THRESHOLD) return "swim";
+    if (change5m < 0) return "sink";
+    // 0% change: fall through to snapshot check
   }
-  if (current < prev) return "sink";
-  return "swim"; // no change → neutral swim
+
+  // Fallback: raw snapshot comparison (1 min ago)
+  if (prev.value > 0 && mc > 0) {
+    const change = (mc - prev.value) / prev.value * 100;
+    if (change > ROCKET_CHANGE_THRESHOLD) return "rocket";
+    if (change > 0) return "swim";
+    if (change < 0) return "sink";
+  }
+
+  // No data → default
+  return "swim";
 }
 
 export default async function handler(
   _req: Request,
   ctx: EdgeContext,
 ): Promise<Response> {
-  // Read current MC + previous state in parallel
-  const [mc, prev] = await Promise.all([
-    getMarketCapUsd().catch(() => 0),
+  // Read current pool data + previous state in parallel
+  const [pool, prev] = await Promise.all([
+    getPoolData().catch(() => ({ marketCap: 0, change5m: null })),
     readState(),
   ]);
 
-  const tier = pickTier(mc, prev.value, prev.ts);
+  const tier = pickTier(pool.change5m, pool.marketCap, prev);
   const imageUrl =
     tier === "rocket" ? IMG_ROCKET : tier === "sink" ? IMG_SINK : IMG_SWIM;
 
-  // Persist current value for next comparison. Use ctx.waitUntil so
+  // Persist current MC for fallback comparison. Use ctx.waitUntil so
   // the Vercel edge runtime keeps the request alive until the write
   // completes (instead of terminating the function when we return).
-  ctx.waitUntil(writeState(mc, Date.now()).catch(() => {}));
+  ctx.waitUntil(writeState(pool.marketCap, Date.now()).catch(() => {}));
 
   // 302 redirect to the chosen image on Pinata. The consumer follows
   // the redirect; the function itself stays lightweight.
+  const changeStr = pool.change5m !== null
+    ? pool.change5m.toFixed(2) + "% (5m)"
+    : prev.value > 0
+    ? (((pool.marketCap - prev.value) / prev.value) * 100).toFixed(2) + "% (1m)"
+    : "n/a";
+
   return new Response(null, {
     status: 302,
     headers: {
       Location: imageUrl,
       "Cache-Control": "public, s-maxage=60, max-age=30",
       "X-Pool-Tier": tier,
-      "X-Pool-Marketcap": String(mc),
-      "X-Pool-Prev-Marketcap": String(prev.value),
-      "X-Pool-Change": prev.value > 0
-        ? (((mc - prev.value) / prev.value) * 100).toFixed(2) + "%"
-        : "n/a",
+      "X-Pool-Marketcap": String(pool.marketCap),
+      "X-Pool-Change-5m": pool.change5m !== null ? pool.change5m.toFixed(2) + "%" : "n/a",
+      "X-Pool-Change": changeStr,
     },
   });
 }
