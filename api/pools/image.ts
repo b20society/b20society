@@ -1,19 +1,21 @@
 // Pools.fun test image endpoint — marketcap-direction dynamic image.
 //
 // Returns one of three GIFs based on B20 Society / SWIM market cap
-// direction vs the value from ~1 minute ago (4 polls at 15s each):
+// direction vs the value from ~1 minute ago:
 //
 //   market cap rose by >50% vs ~1min-ago  → rocket (🚀)
 //   market cap rose vs ~1min-ago          → swim  (default)
 //   market cap fell vs ~1min-ago          → sink  (↓)
 //   first run / no history                → swim  (default)
 //
-// Vercel Cron (defined in vercel.json, every 15s) calls /api/cron-tick,
-// which in turn calls this endpoint. Polling frequently keeps the
-// state fresh; the tier decision is still based on a 1-min window,
-// not the 15s snapshot, so brief spikes don't trigger an image flip.
+// Vercel Cron (defined in vercel.json, every minute) calls
+// /api/cron-tick, which in turn calls this endpoint. Polling every
+// minute keeps the state fresh; the tier decision is based on a
+// 1-min window so brief spikes don't trigger an image flip.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export const config = {
+  runtime: "edge",
+};
 
 const IMG_SWIM =
   "https://lime-occupational-yak-490.mypinata.cloud/ipfs/bafkreihdwf6nucjp6rxkvqm62gvzbrpewy7lbhn2io6vknwgsnu6ecttrq";
@@ -61,6 +63,7 @@ async function writeHistory(history: McEntry[]): Promise<void> {
       body: JSON.stringify({
         items: [{ operation: "upsert", key: "mc_history", value: JSON.stringify(history) }],
       }),
+      signal: AbortSignal.timeout(3_000),
     });
   } catch {}
 }
@@ -71,7 +74,7 @@ async function getMarketCapUsd(): Promise<number> {
 
   if (swimPool && swimPool !== "0x0000000000000000000000000000000000000000") {
     const url = `https://api.dexscreener.com/latest/dex/pairs/robinhood/${swimPool}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
     if (!res.ok) return 0;
     const data = (await res.json()) as {
       pair?: { marketCap?: number; fdv?: number };
@@ -82,7 +85,7 @@ async function getMarketCapUsd(): Promise<number> {
   }
 
   const url = "https://api.dexscreener.com/latest/dex/tokens/" + b20Token;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
   if (!res.ok) return 0;
   const data = (await res.json()) as {
     pairs?: Array<{ marketCap?: number; fdv?: number }>;
@@ -129,10 +132,14 @@ function pickTier(
   return { tier, baseline: baseline.value, baselineAgeMs: now - baseline.ts };
 }
 
+interface EdgeContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 export default async function handler(
-  _req: VercelRequest,
-  res: VercelResponse,
-): Promise<void> {
+  _req: Request,
+  ctx: EdgeContext,
+): Promise<Response> {
   const now = Date.now();
 
   const [mc, history] = await Promise.all([
@@ -144,23 +151,28 @@ export default async function handler(
   const imageUrl =
     tier === "rocket" ? IMG_ROCKET : tier === "sink" ? IMG_SINK : IMG_SWIM;
 
-  // Write back updated history
+  // Append current to history, trim, write back. ctx.waitUntil keeps
+  // the request alive until the write completes.
   const newHistory = [...history, { value: mc, ts: now }].slice(-HISTORY_MAX);
-  writeHistory(newHistory).catch(() => {});
+  ctx.waitUntil(writeHistory(newHistory).catch(() => {}));
 
   const changeStr =
     baseline !== null && baseline > 0
       ? (((mc - baseline) / baseline) * 100).toFixed(2) + "%"
       : "n/a";
 
-  res.setHeader("Location", imageUrl);
-  res.setHeader("Cache-Control", "public, s-maxage=15, max-age=10");
-  res.setHeader("X-Pool-Tier", tier);
-  res.setHeader("X-Pool-Marketcap", String(mc));
-  res.setHeader("X-Pool-Baseline", baseline !== null ? String(baseline) : "n/a");
-  res.setHeader("X-Pool-Baseline-Age-Sec",
-    baselineAgeMs !== null ? String(Math.round(baselineAgeMs / 1000)) : "n/a");
-  res.setHeader("X-Pool-Change", changeStr);
-  res.setHeader("X-Pool-History-Size", String(newHistory.length));
-  res.status(302).end();
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: imageUrl,
+      "Cache-Control": "public, s-maxage=60, max-age=30",
+      "X-Pool-Tier": tier,
+      "X-Pool-Marketcap": String(mc),
+      "X-Pool-Baseline": baseline !== null ? String(baseline) : "n/a",
+      "X-Pool-Baseline-Age-Sec":
+        baselineAgeMs !== null ? String(Math.round(baselineAgeMs / 1000)) : "n/a",
+      "X-Pool-Change": changeStr,
+      "X-Pool-History-Size": String(newHistory.length),
+    },
+  });
 }

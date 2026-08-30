@@ -1,6 +1,8 @@
 // Pools.fun test metadata endpoint.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export const config = {
+  runtime: "edge",
+};
 
 const METADATA = {
   name: "TESTT",
@@ -18,12 +20,13 @@ const METADATA = {
   image: "https://b20society.com/pools/image",
 };
 
-export default function handler(
-  _req: VercelRequest,
-  res: VercelResponse,
-): void {
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Cache-Control", "public, s-maxage=60, max-age=30");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.status(200).send(JSON.stringify(METADATA, null, 2));
+export default function handler(): Response {
+  return new Response(JSON.stringify(METADATA, null, 2), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, s-maxage=60, max-age=30",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }
