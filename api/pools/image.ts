@@ -98,10 +98,29 @@ async function writeState(value: number, ts: number): Promise<void> {
   }
 }
 
+// Reads market cap for either SWIM (if env vars set) or B20 Society fallback.
+// SWIM (Robinhood chain) uses the pair API directly for accuracy.
+// B20 Society (Base) uses the token API.
 async function getMarketCapUsd(): Promise<number> {
+  const swimPool = process.env.SWIM_POOL_ADDRESS;
+  const b20Token = "0xb2000000000000000000006006292Dcc749D6401";
+
+  // Prefer SWIM (Robinhood) if env var is set
+  if (swimPool && swimPool !== "0x0000000000000000000000000000000000000000") {
+    const url = `https://api.dexscreener.com/latest/dex/pairs/robinhood/${swimPool}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) return 0;
+    const data = (await res.json()) as {
+      pair?: { marketCap?: number; fdv?: number };
+      pairs?: Array<{ marketCap?: number; fdv?: number }>;
+    };
+    const p = data.pair ?? data.pairs?.[0];
+    return p?.marketCap ?? p?.fdv ?? 0;
+  }
+
+  // Fallback: B20 Society on Base
   const url =
-    "https://api.dexscreener.com/latest/dex/tokens/" +
-    "0xb2000000000000000000006006292Dcc749D6401";
+    "https://api.dexscreener.com/latest/dex/tokens/" + b20Token;
   const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
   if (!res.ok) return 0;
   const data = (await res.json()) as {
