@@ -9,6 +9,8 @@
     { "source": "/upgrade", "destination": "/upgrade.html" },
     { "source": "/nft", "destination": "/nft.html" },
     { "source": "/bankrtest/metadata", "destination": "/api/bankrtest/metadata" },
-    { "source": "/bankrtest/image", "destination": "/api/bankrtest/image" }
+    { "source": "/bankrtest/image", "destination": "/api/bankrtest/image" },
+    { "source": "/pools/metadata", "destination": "/api/pools/metadata" },
+    { "source": "/pools/image", "destination": "/api/pools/image" }
   ]
 }
