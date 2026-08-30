@@ -8,6 +8,7 @@
     { "source": "/mint", "destination": "/mint.html" },
     { "source": "/upgrade", "destination": "/upgrade.html" },
     { "source": "/nft", "destination": "/nft.html" },
-    { "source": "/bankrtest/metadata", "destination": "/api/bankrtest/metadata" }
+    { "source": "/bankrtest/metadata", "destination": "/api/bankrtest/metadata" },
+    { "source": "/bankrtest/image", "destination": "/api/bankrtest/image" }
   ]
 }
