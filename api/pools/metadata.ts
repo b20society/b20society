@@ -5,8 +5,8 @@ export const config = {
 };
 
 const METADATA = {
-  name: "TEST",
-  symbol: "TEST",
+  name: "TESTT",
+  symbol: "TESTTT",
   attributes: [
     { trait_type: "launch_provider", value: "poolsfun" },
     { trait_type: "chain", value: "robinhood" },
