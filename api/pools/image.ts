@@ -25,6 +25,10 @@ export const config = {
   runtime: "edge",
 };
 
+interface EdgeContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 // Three GIFs, hosted on Pinata. These can be swapped without redeploy
 // by editing this constant block.
 const IMG_SWIM =
@@ -123,7 +127,10 @@ function pickTier(current: number, prev: number, prevTs: number): Tier {
   return "swim"; // no change → neutral swim
 }
 
-export default async function handler(): Promise<Response> {
+export default async function handler(
+  _req: Request,
+  ctx: EdgeContext,
+): Promise<Response> {
   // Read current MC + previous state in parallel
   const [mc, prev] = await Promise.all([
     getMarketCapUsd().catch(() => 0),
@@ -134,10 +141,10 @@ export default async function handler(): Promise<Response> {
   const imageUrl =
     tier === "rocket" ? IMG_ROCKET : tier === "sink" ? IMG_SINK : IMG_SWIM;
 
-  // Persist current value for next comparison (don't await — fire and
-  // forget, so the function still returns quickly even if Edge Config
-  // is slow).
-  writeState(mc, Date.now()).catch(() => {});
+  // Persist current value for next comparison. Use ctx.waitUntil so
+  // the Vercel edge runtime keeps the request alive until the write
+  // completes (instead of terminating the function when we return).
+  ctx.waitUntil(writeState(mc, Date.now()).catch(() => {}));
 
   // 302 redirect to the chosen image on Pinata. The consumer follows
   // the redirect; the function itself stays lightweight.
@@ -149,7 +156,9 @@ export default async function handler(): Promise<Response> {
       "X-Pool-Tier": tier,
       "X-Pool-Marketcap": String(mc),
       "X-Pool-Prev-Marketcap": String(prev.value),
-      "X-Pool-Change": ((mc - prev.value) / Math.max(prev.value, 1) * 100).toFixed(2) + "%",
+      "X-Pool-Change": prev.value > 0
+        ? (((mc - prev.value) / prev.value) * 100).toFixed(2) + "%"
+        : "n/a",
     },
   });
 }
