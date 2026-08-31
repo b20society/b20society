@@ -280,16 +280,16 @@ export default async function handler(
     const swimSinkContract = (process.env.SWIMSINK_NFT_ADDRESS ??
       SWIMSINK_NFT_DEFAULT) as `0x${string}`;
 
-    // Try B20 Society first (Base, much higher traffic), then SwimSink.
-    const b20 = await readB20Metadata(tokenId, tokenIdStr, b20Contract);
-    if (b20) return b20;
-
-    const swim = await readSwimSinkMetadata(
-      tokenId,
-      tokenIdStr,
-      swimSinkContract,
-    );
+    // Try SwimSink first (Robinhood, the newer collection and the one
+    // whose tokenURI now points here). Fall back to B20 Society on
+    // Base so legacy NFTs still resolve. We parallelize both calls so
+    // the slower chain doesn't block the fast path.
+    const [swim, b20] = await Promise.all([
+      readSwimSinkMetadata(tokenId, tokenIdStr, swimSinkContract),
+      readB20Metadata(tokenId, tokenIdStr, b20Contract),
+    ]);
     if (swim) return swim;
+    if (b20) return b20;
 
     return jsonError(`Token #${tokenIdStr} not minted yet`, 404);
   } catch (err) {
