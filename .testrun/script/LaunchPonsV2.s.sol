@@ -41,14 +41,14 @@ contract Launch is Script {
 
         vm.startBroadcast();
         (address token, address curve) = _launchToken(
-            "Swim Sink",
-            "SWIMSINK",
+            "Swim/Sink",
+            "SWIM/SINK",
             "https://b20society.com/pools/image",
             "what if your token's image changed by itself?  not animation. not random. actually watching the market.  when it pumps when it dumps when it's chill  no buttons. no refresh. the art just reacts.",
             "",
             "",
             "",
-            "https://b20society.com",
+            "https://platypus.community",
             "",
             CREATOR_FEE_RECIPIENT,
             CREATOR_TAX_BPS,
