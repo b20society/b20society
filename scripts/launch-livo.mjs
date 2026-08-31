@@ -1,25 +1,25 @@
 // End-to-end Livo (livo.trade) launch script for Swim/Sink.
 //
 // Flow (per livo-token-launch skill):
-//   1. Pin swim.gif to Pinata → IPFS URL
+//   1. Build createToken calldata (no salt yet)
 //   2. Auth with Livo (sign-in wallet) → JWT
 //   3. previewTokenImplementation() to know which impl to mine against
 //   4. Mine vanity salt (predicted address ends in 0x1110)
-//   5. Build the V2 createToken calldata with the mined salt
-//   6. Sign offline → keccak256(signedTx) = txHash
-//   7. POST metadata to Livo with the precomputed txHash
-//   8. Print the signedTx + txHash + tokenAddress, then WAIT for "go"
-//      before broadcasting sendRawTransaction.
+//   5. Re-encode createToken calldata with the mined salt
+//   6. Sign offline → keccak256(signedTx) = precomputed txHash
+//   7. POST metadata to Livo (with the GIF as multipart `image` — Livo
+//      pins via their own Pinata, we don't need our own Pinata JWT)
+//   8. Save /tmp/livo-launch.json (signedTx + txHash) — broadcast-ready.
+//      WAIT for "go" before sending sendRawTransaction.
 //
 // Requirements:
-//   - PINATA_JWT env var (free at app.pinata.cloud)
 //   - FLAP_PK env var (deployer / fee recipient)
 //
 // Run:
-//   PINATA_JWT=... FLAP_PK=... node scripts/launch-livo.mjs
+//   FLAP_PK=... node scripts/launch-livo.mjs
 //
-// All step outputs go to /tmp/livo-launch-*.json so the broadcast step
-// can be re-run independently with: `node scripts/launch-livo-broadcast.mjs`
+//   After the script prints the predicted token + txHash, review and run:
+//   node scripts/launch-livo-broadcast.mjs
 
 import {
   createPublicClient,
@@ -36,16 +36,13 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { defineChain } from "viem";
 import { readFileSync, writeFileSync } from "fs";
-import { createHash } from "crypto";
 
 const CHAIN_ID = 4663;
 const FACTORY = "0x7843203be233b3Be7E5017A68a64FdBf32b45fFE";
 const PROXY_PREFIX = "0x3d602d80600a3d3981f3363d3d373d3d3d363d73";
 const PROXY_SUFFIX = "0x5af43d82803e903d91602b57fd5bf3";
 
-const PINATA_JWT = process.env.PINATA_JWT;
 const FLAP_PK = process.env.FLAP_PK;
-if (!PINATA_JWT) { console.error("PINATA_JWT env required"); process.exit(1); }
 if (!FLAP_PK) { console.error("FLAP_PK env required"); process.exit(1); }
 
 const rpcUrl =
@@ -65,29 +62,10 @@ const account = privateKeyToAccount(FLAP_PK);
 // Factory ABI (relevant functions only)
 const factoryAbi = JSON.parse(readFileSync("/tmp/livo_v2_factory_abi.json"));
 
-// --- Step 1: Pin swim.gif to Pinata ---
-console.log("=== Step 1: Pin swim.gif to Pinata ===");
+// --- Step 1: Read swim.gif for later Livo upload ---
+console.log("=== Step 1: Read swim.gif for Livo upload ===");
 const swimGif = readFileSync("/workspace/b20society/public/images/pools/swim.gif");
-const form = new FormData();
-form.append("file", new Blob([swimGif], { type: "image/gif" }), "swim.gif");
-form.append(
-  "pinataMetadata",
-  JSON.stringify({ name: "swim-sink-default", keyvalues: { project: "swim-sink-society" } }),
-);
-const pinRes = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${PINATA_JWT}` },
-  body: form,
-});
-if (!pinRes.ok) {
-  console.error("Pinata upload failed:", pinRes.status, await pinRes.text());
-  process.exit(1);
-}
-const pinData = await pinRes.json();
-const ipfsCid = pinData.IpfsHash;
-const imageUrl = `https://gateway.pinata.cloud/ipfs/${ipfsCid}`;
-console.log(`  IPFS CID: ${ipfsCid}`);
-console.log(`  imageUrl: ${imageUrl}`);
+console.log(`  swim.gif: ${swimGif.length} bytes (Livo will pin via their Pinata)`);
 
 // --- Step 2: Livo auth ---
 console.log("\n=== Step 2: Livo auth ===");
@@ -213,7 +191,11 @@ formData.append("symbol", "SWIM/SINK");
 formData.append("chainId", String(CHAIN_ID));
 formData.append("description", description);
 formData.append("socials", socials);
-formData.append("imageUrl", imageUrl); // already pinned by us
+// Livo accepts either a file upload (their backend pins it to Pinata) or
+// an already-pinned IPFS URL. We don't have our own Pinata JWT, so we
+// upload the file directly — Livo handles the pinning and returns the
+// IPFS URL in `imageUrl` of the response.
+formData.append("image", new Blob([swimGif], { type: "image/gif" }), "swim.gif");
 const metaRes = await fetch("https://www.livo.trade/api/tokens/create", {
   method: "POST",
   headers: { Authorization: `Bearer ${jwt}` },
@@ -228,6 +210,10 @@ const metaJson = JSON.parse(metaBody);
 console.log(`  Response: ${JSON.stringify(metaJson)}`);
 
 // --- Step 8: Persist + print everything ready-to-broadcast ---
+const imageUrl = metaJson.imageUrl ?? null;
+const ipfsCid = imageUrl
+  ? imageUrl.replace(/^https?:\/\/[^/]+\/ipfs\//, "")
+  : null;
 const out = {
   factory: FACTORY,
   predictedTokenAddress: predictedAddress,
