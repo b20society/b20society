@@ -1,7 +1,7 @@
 // SWIM/SINK token metadata endpoint.
 //
 // This serves the public metadata for the SWIM/SINK token launched
-// on Pons (ponsfamily.com) on Robinhood Chain. Pons tokens are
+// on Pons v2 (ponsfamily.com) on Robinhood Chain. Pons tokens are
 // self-describing on-chain (logo(), description(), socials() are
 // read directly from the token contract), so this endpoint is a
 // secondary, off-chain reference used by:
@@ -27,16 +27,22 @@ const METADATA = {
   external_url: "https://platypus.community",
   attributes: [
     { trait_type: "launch_provider", value: "pons" },
+    { trait_type: "launch_version", value: "v2" },
     { trait_type: "launcher", value: "ponsfamily.com" },
     { trait_type: "chain", value: "robinhood" },
     { trait_type: "chain_id", value: 4663 },
-    { trait_type: "factory", value: "0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB" },
-    { trait_type: "locker", value: "0x736D76699C26D0d966744cAe304C000d471f7F35" },
-    { trait_type: "quote_token", value: "WETH" },
-    { trait_type: "quote_token_address", value: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73" },
-    { trait_type: "pool_fee_bps", value: 10000 },
+    { trait_type: "factory", value: "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e" },
+    { trait_type: "token", value: "0x512c40dd3a94a89126646e30b9b143f408823ee9" },
+    { trait_type: "bonding_curve", value: "0x5fcdf31b376f11f7aefd1d55aa520a1923f04093" },
+    { trait_type: "fee_escrow", value: "0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e" },
+    { trait_type: "quote_token", value: "native ETH" },
+    { trait_type: "weth", value: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73" },
+    { trait_type: "curve_fee_bps", value: 100 },
+    { trait_type: "creator_tax_bps", value: 100 },
+    { trait_type: "buyback_enabled", value: false },
     { trait_type: "supply", value: "1000000000" },
-    { trait_type: "creator_fee_split", value: "70/30 (creator/protocol)" },
+    { trait_type: "creator_fee_split", value: "70/30 (creator/protocol of base fee) + 100% creator tax" },
+    { trait_type: "launch_fee_eth", value: 0.0005 },
     { trait_type: "network", value: "Robinhood Chain" },
   ],
   socials: {
