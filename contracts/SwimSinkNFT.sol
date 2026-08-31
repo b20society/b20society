@@ -83,6 +83,11 @@ contract SwimSinkNFT is
     ///         deployment, immutable.
     IBurnable public immutable swim;
 
+    /// @notice SWIM/SINK bonding curve (or graduated pool) address.
+    ///         Stored for off-chain reference (e.g. block explorers,
+    ///         metadata tools) — the contract does not read it on-chain.
+    address public immutable pool;
+
     /// @notice Address that receives burned SWIM tokens. Using a well-
     ///         known burn sink; tokens sent here are unrecoverable.
     address public constant BURN_ADDRESS =
@@ -138,16 +143,26 @@ contract SwimSinkNFT is
      *                           (set once, immutable for contract lifetime)
      * @param  _royaltyReceiver  Address that receives mint ETH and
      *                           secondary-sale royalty
+     * @param  _pool             SWIM/SINK bonding curve or graduated pool
+     *                           address. Stored for off-chain reference
+     *                           only — the contract does not read it on
+     *                           chain.
      */
     constructor(
         address _swim,
-        address _royaltyReceiver
+        address _royaltyReceiver,
+        address _pool
     ) ERC721("Swim Sink Society", "SWIMSNK") {
-        if (_swim == address(0) || _royaltyReceiver == address(0)) {
+        if (
+            _swim == address(0) ||
+            _royaltyReceiver == address(0) ||
+            _pool == address(0)
+        ) {
             revert InvalidAddress();
         }
         swim = IBurnable(_swim);
         royaltyReceiver = _royaltyReceiver;
+        pool = _pool;
         _setDefaultRoyalty(_royaltyReceiver, ROYALTY_BPS);
     }
 
@@ -273,9 +288,11 @@ contract SwimSinkNFT is
 
     /**
      * @notice Returns the metadata URL for an NFT. Points to the
-     *         Swim/Sink Vercel Edge function, which serves dynamic
-     *         ERC-721 metadata with the NFT's current phase image
-     *         (same /api/nft/<id> pattern as B20 Society).
+     *         shared /api/nft/<id> Vercel Edge function, which serves
+     *         dynamic ERC-721 metadata with the NFT's current phase
+     *         image. The endpoint routes by on-chain ownership so
+     *         the URL is shared with B20 Society and any future
+     *         collection on the same edge.
      */
     function tokenURI(uint256 tokenId)
         public
@@ -285,7 +302,7 @@ contract SwimSinkNFT is
     {
         _requireOwned(tokenId);
         return string.concat(
-            "https://b20society.com/api/swim-nft/",
+            "https://b20society.com/api/nft/",
             _toString(tokenId)
         );
     }

@@ -43,10 +43,11 @@ contract SwimSinkNFTTest is Test {
     address internal alice = address(0x1111);
     address internal bob = address(0x2222);
     address internal royaltyReceiver = address(0xDEAD);
+    address internal pool = address(0xCAFE);
 
     function setUp() public {
         swim = new MockSwim();
-        nft = new SwimSinkNFT(address(swim), royaltyReceiver);
+        nft = new SwimSinkNFT(address(swim), royaltyReceiver, pool);
     }
 
     // =============================================================
@@ -63,6 +64,7 @@ contract SwimSinkNFTTest is Test {
         assertEq(nft.ROYALTY_BPS(), 500, "royalty bps");
         assertEq(nft.royaltyReceiver(), royaltyReceiver, "royalty receiver");
         assertEq(address(nft.swim()), address(swim), "swim address");
+        assertEq(nft.pool(), pool, "pool address");
     }
 
     // =============================================================
@@ -248,7 +250,7 @@ contract SwimSinkNFTTest is Test {
         uint256 tokenId = nft.mint{value: 0.01 ether}();
 
         string memory uri = nft.tokenURI(tokenId);
-        assertEq(uri, "https://b20society.com/api/swim-nft/1", "tokenURI");
+        assertEq(uri, "https://b20society.com/api/nft/1", "tokenURI");
     }
 
     function test_tokenURI_nonexistent_reverts() public {
@@ -272,10 +274,13 @@ contract SwimSinkNFTTest is Test {
 
     function test_constructor_zero_address_reverts() public {
         vm.expectRevert(SwimSinkNFT.InvalidAddress.selector);
-        new SwimSinkNFT(address(0), royaltyReceiver);
+        new SwimSinkNFT(address(0), royaltyReceiver, pool);
 
         vm.expectRevert(SwimSinkNFT.InvalidAddress.selector);
-        new SwimSinkNFT(address(swim), address(0));
+        new SwimSinkNFT(address(swim), address(0), pool);
+
+        vm.expectRevert(SwimSinkNFT.InvalidAddress.selector);
+        new SwimSinkNFT(address(swim), royaltyReceiver, address(0));
     }
 
     function test_supportsInterface() public view {

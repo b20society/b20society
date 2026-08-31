@@ -8,7 +8,8 @@ import { SwimSinkNFT } from "../contracts/SwimSinkNFT.sol";
 /// @notice Deploys the Swim/Sink Society NFT on Robinhood Chain.
 ///
 ///         Usage:
-///           SWIM=0x02EAAFA953BA4723F2b690D0d67774290fc5445B \
+///           SWIM=0x512c40dd3a94a89126646e30b9b143f408823ee9 \
+///           POOL=0x5fcdf31b376f11f7aefd1d55aa520a1923f04093 \
 ///           ROYALTY_RECEIVER=0x5C71128E059C3DaB0C15F565E87d14963B357abE \
 ///           forge script script/DeploySwimNFT.s.sol:Deploy \
 ///             --rpc-url robinhood --broadcast --private-key $FLAP_PK
@@ -16,15 +17,18 @@ contract DeploySwimNFT is Script {
     function run() external {
         address swim = vm.envAddress("SWIM");
         address royaltyReceiver = vm.envAddress("ROYALTY_RECEIVER");
+        address pool = vm.envAddress("POOL");
         require(swim != address(0), "SWIM env required");
         require(royaltyReceiver != address(0), "ROYALTY_RECEIVER env required");
+        require(pool != address(0), "POOL env required");
 
         vm.startBroadcast();
-        SwimSinkNFT nft = new SwimSinkNFT(swim, royaltyReceiver);
+        SwimSinkNFT nft = new SwimSinkNFT(swim, royaltyReceiver, pool);
         vm.stopBroadcast();
 
         console.log("SwimSinkNFT deployed at:", address(nft));
         console.log("SWIM token:", swim);
+        console.log("Bonding curve / pool:", pool);
         console.log("Royalty receiver:", royaltyReceiver);
         console.log("Mint price: 0.01 ETH");
         console.log("Max supply: 222");
