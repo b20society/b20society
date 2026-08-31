@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Swim Sink Society</title>
+    <link rel="icon" href="/images/placeholder.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06070a;
+        --fg: #f4f5f7;
+        --muted: #8a93a6;
+        --accent: #2bd4c1;
+        --card: #0e1219;
+        --border: #1b2230;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        line-height: 1.55;
+        min-height: 100vh;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; }
+      h1 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin: 0 0 0.4rem; }
+      h1 span { color: var(--accent); }
+      .lede { color: var(--muted); margin: 0 0 2.4rem; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.2rem 1.3rem;
+        margin-bottom: 1.2rem;
+      }
+      .card h2 { margin: 0 0 0.6rem; font-size: 1.05rem; }
+      .row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-bottom: 1px dashed var(--border); }
+      .row:last-child { border-bottom: none; }
+      .row .k { color: var(--muted); }
+      .row .v { text-align: right; word-break: break-all; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      img#phase { width: 100%; border-radius: 12px; border: 1px solid var(--border); display: block; }
+      .pill {
+        display: inline-block;
+        background: var(--accent);
+        color: var(--bg);
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Swim Sink <span>Society</span></h1>
+      <p class="lede">A self-evolving NFT on Robinhood Chain. Each phase is unlocked by burning $SWIM.</p>
+
+      <div id="root"><p class="lede">Loading…</p></div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      if (!id) {
+        document.getElementById("root").innerHTML =
+          '<div class="card"><h2>No token id</h2><p>Append <code>?id=&lt;number&gt;</code> to the URL.</p></div>';
+      } else {
+        fetch("/api/swim-nft/" + id)
+          .then(async (r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then((m) => {
+            const phase = m.attributes.find((a) => a.trait_type === "Phase")?.value ?? "?";
+            const burnNext = m.attributes.find((a) => a.trait_type === "Burn Cost to Next Phase")?.value ?? "?";
+            const totalBurned = m.attributes.find((a) => a.trait_type === "Total Burned")?.value ?? "?";
+            const status = m.attributes.find((a) => a.trait_type === "Status")?.value ?? "?";
+
+            document.getElementById("root").innerHTML = `
+              <div class="card">
+                <h2>${m.name}</h2>
+                <p>${m.description}</p>
+                <img id="phase" src="${m.image}" alt="Phase ${phase}" />
+              </div>
+              <div class="card">
+                <h2>On-chain</h2>
+                <div class="row"><span class="k">Phase</span><span class="v"><span class="pill">${phase} / 10</span></span></div>
+                <div class="row"><span class="k">Status</span><span class="v">${status}</span></div>
+                <div class="row"><span class="k">Burn to next phase</span><span class="v">${burnNext}</span></div>
+                <div class="row"><span class="k">Total burned</span><span class="v">${totalBurned}</span></div>
+                <div class="row"><span class="k">Network</span><span class="v">Robinhood Chain (4663)</span></div>
+                <div class="row"><span class="k">Contract</span><span class="v"><a href="https://robinhoodchain.blockscout.com/address/0x31C5338699688Ca1164d9e95D80e05c39057bcBf" target="_blank" rel="noreferrer">0x31C5…bcBf</a></span></div>
+              </div>
+              <div class="card">
+                <h2>Evolve</h2>
+                <p>To advance the phase, the holder must burn $SWIM. The cost is on the on-chain "Burn Cost to Next Phase" attribute above.</p>
+              </div>
+            `;
+          })
+          .catch((err) => {
+            document.getElementById("root").innerHTML =
+              '<div class="card"><h2>Not minted</h2><p>Token #' + id + ' is not minted (or not found). Error: ' + (err.message || err) + '</p></div>';
+          });
+      }
+    </script>
+  </body>
+</html>
